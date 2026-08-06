@@ -1,50 +1,113 @@
 import {
   Ambulance,
+  Bell,
   BookOpen,
   CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   FileText,
   Gauge,
   GraduationCap,
   HeartPulse,
   Menu,
+  Moon,
   Search,
   Settings,
   ShieldCheck,
   Stethoscope,
+  Sun,
   Users,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import type { NavigationItem } from '../types/navigation';
 
-const navigation: NavigationItem[] = [
-  { label: 'Dashboard', path: '/', icon: Gauge },
-  { label: 'Roster', path: '/roster', icon: Users },
-  { label: 'Cadets', path: '/cadets', icon: GraduationCap },
-  { label: 'Training', path: '/training', icon: CalendarDays },
-  { label: 'Ride Alongs', path: '/ride-alongs', icon: Ambulance },
-  { label: 'Training Sheets', path: '/training-sheets', icon: ClipboardList },
-  { label: 'Probationer Tests', path: '/probationer-tests', icon: ShieldCheck },
-  { label: 'Knowledge Base', path: '/knowledge-base', icon: BookOpen },
-  { label: 'Quick Reference', path: '/quick-reference', icon: HeartPulse },
-  { label: 'Forms', path: '/forms', icon: FileText },
-  { label: 'My Profile', path: '/profile', icon: Stethoscope },
-  { label: 'Administration', path: '/administration', icon: Settings, permission: 'admin.view' },
+interface NavItem {
+  label: string;
+  path: string;
+  icon: typeof Gauge;
+}
+
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
+const navigation: NavGroup[] = [
+  {
+    items: [{ label: 'Dashboard', path: '/', icon: Gauge }],
+  },
+  {
+    label: 'Personnel',
+    items: [
+      { label: 'Roster', path: '/roster', icon: Users },
+      { label: 'Cadets', path: '/cadets', icon: GraduationCap },
+    ],
+  },
+  {
+    label: 'Training',
+    items: [
+      { label: 'Sessions', path: '/training', icon: CalendarDays },
+      { label: 'Ride Alongs', path: '/ride-alongs', icon: Ambulance },
+      { label: 'Training Sheets', path: '/training-sheets', icon: ClipboardList },
+      { label: 'Probationer Tests', path: '/probationer-tests', icon: ShieldCheck },
+    ],
+  },
+  {
+    label: 'Resources',
+    items: [
+      { label: 'Quick Reference', path: '/quick-reference', icon: HeartPulse },
+      { label: 'Knowledge Base', path: '/knowledge-base', icon: BookOpen },
+      { label: 'Forms', path: '/forms', icon: FileText },
+    ],
+  },
+  {
+    label: 'System',
+    items: [{ label: 'Administration', path: '/administration', icon: Settings }],
+  },
 ];
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('ems-sidebar-collapsed') === 'true');
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('ems-theme') !== 'light');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('ems-sidebar-collapsed', String(collapsed));
+  }, [collapsed]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+    localStorage.setItem('ems-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>('#global-search')?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const shellClass = useMemo(
+    () => `app-shell${collapsed ? ' sidebar-collapsed' : ''}`,
+    [collapsed],
+  );
 
   return (
-    <div className="app-shell">
+    <div className={shellClass}>
       <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
         <div className="brand-block">
           <div className="brand-mark"><HeartPulse size={22} /></div>
-          <div>
-            <strong>SAMD Internal</strong>
-            <span>EMS operations</span>
+          <div className="brand-copy">
+            <strong>EMS Directory</strong>
+            <span>Shared operations</span>
           </div>
           <button className="icon-button mobile-only" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
             <X size={20} />
@@ -52,19 +115,36 @@ export function AppLayout() {
         </div>
 
         <nav className="main-nav" aria-label="Main navigation">
-          {navigation.map(({ label, path, icon: Icon }) => (
-            <NavLink
-              key={path}
-              to={path}
-              end={path === '/'}
-              onClick={() => setMobileOpen(false)}
-              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </NavLink>
+          {navigation.map((group, groupIndex) => (
+            <div className="nav-group" key={group.label ?? `group-${groupIndex}`}>
+              {group.label ? <p className="nav-group-label">{group.label}</p> : null}
+              {group.items.map(({ label, path, icon: Icon }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  end={path === '/'}
+                  title={collapsed ? label : undefined}
+                  onClick={() => setMobileOpen(false)}
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
+
+        <div className="sidebar-footer">
+          <NavLink to="/profile" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+            <Stethoscope size={18} />
+            <span>My Profile</span>
+          </NavLink>
+          <button className="collapse-button" type="button" onClick={() => setCollapsed((value) => !value)}>
+            {collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
+            <span>{collapsed ? 'Expand' : 'Collapse'}</span>
+          </button>
+        </div>
       </aside>
 
       <div className="main-column">
@@ -72,17 +152,52 @@ export function AppLayout() {
           <button className="icon-button mobile-only" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
             <Menu size={20} />
           </button>
-          <button className="search-button" type="button">
+
+          <label className="search-box" htmlFor="global-search">
             <Search size={18} />
-            <span>Search people, cadets, guides…</span>
+            <input id="global-search" type="search" placeholder="Search people, cadets, guides…" />
             <kbd>Ctrl K</kbd>
-          </button>
-          <div className="user-chip">
-            <div className="avatar">KM</div>
-            <div>
-              <strong>Kizzy Moon</strong>
-              <span>FTO</span>
+          </label>
+
+          <div className="topbar-actions">
+            <button className="icon-button topbar-button" type="button" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle theme">
+              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
+            <div className="notification-wrap">
+              <button className="icon-button topbar-button notification-button" type="button" onClick={() => setNotificationsOpen((value) => !value)} aria-label="Notifications">
+                <Bell size={18} />
+                <span className="notification-dot" />
+              </button>
+              {notificationsOpen ? (
+                <div className="notification-panel glass-card">
+                  <div className="panel-header compact">
+                    <div>
+                      <p className="eyebrow">Notifications</p>
+                      <h2>Latest updates</h2>
+                    </div>
+                    <button className="text-button" type="button">Mark all read</button>
+                  </div>
+                  <div className="notification-item unread">
+                    <strong>Day 1 training needs an FTO</strong>
+                    <span>8 August · 19:00</span>
+                  </div>
+                  <div className="notification-item">
+                    <strong>Ride-along feedback saved</strong>
+                    <span>Alex Morgan · 12 minutes ago</span>
+                  </div>
+                </div>
+              ) : null}
             </div>
+
+            <button className="user-chip" type="button">
+              <div className="avatar">KM</div>
+              <div className="user-copy">
+                <strong>Kizzy Moon</strong>
+                <span>FTO</span>
+              </div>
+              <ChevronDown size={15} />
+            </button>
           </div>
         </header>
 
