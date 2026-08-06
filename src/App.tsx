@@ -1,7 +1,5 @@
 import { createHashRouter, RouterProvider } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
-import { CadetProfilePage } from './pages/CadetProfilePage';
-import { CadetsPage } from './pages/CadetsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
@@ -21,6 +19,10 @@ import {
   RideAlongHistoryPage,
   StartRideAlongPage,
 } from './modules/rideAlongs';
+import {
+  CadetProfilePage,
+  CadetsOverviewPage,
+} from './modules/cadets';
 
 const router = createHashRouter([
   {
@@ -30,7 +32,7 @@ const router = createHashRouter([
       { index: true, element: <DashboardPage /> },
       { path: 'roster', element: <RosterPage /> },
       { path: 'roster/:memberId', element: <MemberProfilePage /> },
-      { path: 'cadets', element: <CadetsPage /> },
+      { path: 'cadets', element: <CadetsOverviewPage /> },
       { path: 'cadets/:cadetId', element: <CadetProfilePage /> },
       { path: 'training', element: <TrainingDashboardPage /> },
       { path: 'training/sessions', element: <TrainingSessionsPage /> },

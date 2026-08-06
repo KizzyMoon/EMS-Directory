@@ -1,0 +1,78 @@
+.cadet-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; margin-bottom: 12px; }
+.cadet-summary > div { display: flex; align-items: baseline; gap: 9px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 11px; background: rgba(14,28,46,.62); }
+.cadet-summary strong { font-size: 19px; }
+.cadet-summary span { color: var(--muted); font-size: 11px; }
+
+.cadet-toolbar { display: grid; grid-template-columns: minmax(280px,1fr) 230px auto; gap: 9px; padding: 11px; margin-bottom: 12px; }
+.cadet-toolbar label { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.035); color: var(--muted); }
+.cadet-toolbar input { width: 100%; padding: 9px 0; border: 0; outline: 0; background: transparent; color: var(--text); }
+.cadet-toolbar select { padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.035); color: var(--muted); }
+.cadet-toolbar option { color: #111827; }
+.filter-toggle { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.035); color: var(--muted); cursor: pointer; }
+.filter-toggle.active { color: var(--amber); border-color: rgba(251,191,36,.3); background: var(--amber-soft); }
+
+.cadet-table-card { padding: 0; overflow: hidden; }
+.cadet-table { display: grid; grid-template-columns: .65fr minmax(150px,1fr) .75fr 1.25fr .55fr .55fr .55fr 1fr 1.4fr 20px; gap: 11px; align-items: center; }
+.cadet-table-head { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.cadet-table-row { padding: 11px 14px; border-bottom: 1px solid var(--border); }
+.cadet-table-row:hover { background: rgba(255,255,255,.035); }
+.cadet-callsign { color: var(--accent-light); font-weight: 800; }
+.deadline-text { color: var(--amber) !important; font-weight: 800; }
+
+.cadet-profile-header { display: grid; grid-template-columns: 1.2fr 1fr 1fr .7fr; gap: 9px; margin-bottom: 9px; }
+.cadet-profile-header > div { display: flex; flex-direction: column; gap: 5px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px; background: rgba(14,28,46,.62); }
+.cadet-profile-header > div > span:first-child { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.cadet-profile-header strong { font-size: 12px; }
+
+.cadet-progress-strip { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; margin-bottom: 10px; }
+.cadet-progress-strip > div { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.025); }
+.cadet-progress-strip span { color: var(--muted); font-size: 11px; }
+.cadet-progress-strip strong { font-size: 12px; }
+.cadet-progress-strip .complete { border-color: rgba(61,220,151,.25); background: var(--green-soft); }
+
+.cadet-profile-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.cadet-wide-panel { grid-column: 1 / -1; }
+.cadet-record-list, .cadet-ride-list { display: grid; }
+.cadet-record-list > a { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+.cadet-record-list > a > div { display: flex; flex-direction: column; gap: 2px; }
+.cadet-record-list span { color: var(--muted); font-size: 11px; }
+.cadet-ride-list > a { display: grid; grid-template-columns: 1fr 1fr .6fr auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+.cadet-ride-list span { color: var(--muted); font-size: 11px; }
+
+.cadet-feedback-list, .internal-feedback-list { display: grid; gap: 10px; }
+.cadet-feedback-list article { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,.02); }
+.cadet-feedback-list article > div, .internal-feedback-list article > div { min-width: 0; }
+.cadet-feedback-list span, .internal-feedback-list span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.cadet-feedback-list p, .internal-feedback-list p { margin: 5px 0 0; color: var(--text); }
+.feedback-general { grid-column: 1 / -1; }
+.internal-feedback-list article { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; padding: 12px; border-top: 1px solid var(--border); }
+
+@media (max-width: 1200px) {
+  .cadet-table { grid-template-columns: .65fr minmax(150px,1fr) .75fr 1.2fr .55fr .55fr 1fr 20px; }
+  .cadet-table > :nth-child(7), .cadet-table-head > :nth-child(7),
+  .cadet-table > :nth-child(9), .cadet-table-head > :nth-child(9) { display: none; }
+}
+
+@media (max-width: 900px) {
+  .cadet-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .cadet-toolbar { grid-template-columns: 1fr 1fr; }
+  .cadet-toolbar label { grid-column: 1 / -1; }
+  .cadet-profile-header, .cadet-progress-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .cadet-profile-grid { grid-template-columns: 1fr; }
+  .cadet-wide-panel { grid-column: auto; }
+  .cadet-table-head { display: none; }
+  .cadet-table { grid-template-columns: 80px 1fr auto; }
+  .cadet-table-row > :not(.cadet-callsign):not(strong):not(.status-badge):not(svg) { display: none; }
+}
+
+@media (max-width: 650px) {
+  .cadet-summary, .cadet-profile-header, .cadet-progress-strip { grid-template-columns: 1fr; }
+  .cadet-toolbar { grid-template-columns: 1fr; }
+  .cadet-toolbar label { grid-column: auto; }
+  .cadet-table { grid-template-columns: 70px 1fr auto; }
+  .cadet-table-row .status-badge { display: none; }
+  .cadet-ride-list > a { grid-template-columns: 1fr auto; }
+  .cadet-ride-list > a > :nth-child(2), .cadet-ride-list > a > :nth-child(3) { display: none; }
+  .cadet-feedback-list article, .internal-feedback-list article { grid-template-columns: 1fr; }
+  .feedback-general { grid-column: auto; }
+}
