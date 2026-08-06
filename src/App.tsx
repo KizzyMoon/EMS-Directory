@@ -3,8 +3,10 @@ import { AppLayout } from './layouts/AppLayout';
 import { CadetProfilePage } from './pages/CadetProfilePage';
 import { CadetsPage } from './pages/CadetsPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { MemberProfilePage } from './pages/MemberProfilePage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 import { QuickReferencePage } from './pages/QuickReferencePage';
+import { RosterPage } from './pages/RosterPage';
 
 const router = createHashRouter([
   {
@@ -12,7 +14,8 @@ const router = createHashRouter([
     element: <AppLayout />,
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: 'roster', element: <PlaceholderPage title="Roster" description="Searchable shared EMS roster and member profiles." /> },
+      { path: 'roster', element: <RosterPage /> },
+      { path: 'roster/:memberId', element: <MemberProfilePage /> },
       { path: 'cadets', element: <CadetsPage /> },
       { path: 'cadets/:cadetId', element: <CadetProfilePage /> },
       { path: 'training', element: <PlaceholderPage title="Training" description="Day 1, Day 2, calendar and session sign-ups." /> },
