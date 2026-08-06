@@ -1,0 +1,40 @@
+import type { Cadet } from '../types/cadet';
+
+export const mockCadets: Cadet[] = [
+  {
+    id: 'cadet-001',
+    name: 'Alex Morgan',
+    employeeNumber: 'M7-214',
+    stage: 'Available for Ride Alongs',
+    startDate: '2026-07-24',
+    deadline: '2026-08-21',
+    rideAlongs: 2,
+    uniqueFtos: 2,
+    currentFocus: 'Radio confidence',
+    dayOneComplete: true,
+  },
+  {
+    id: 'cadet-002',
+    name: 'Jamie Cole',
+    employeeNumber: 'M7-219',
+    stage: 'Awaiting Day 1',
+    startDate: '2026-08-02',
+    deadline: '2026-08-30',
+    rideAlongs: 0,
+    uniqueFtos: 0,
+    currentFocus: 'Not set',
+    dayOneComplete: false,
+  },
+  {
+    id: 'cadet-003',
+    name: 'Taylor Reed',
+    employeeNumber: 'M7-203',
+    stage: 'Day 2 Booked',
+    startDate: '2026-07-18',
+    deadline: '2026-08-15',
+    rideAlongs: 5,
+    uniqueFtos: 5,
+    currentFocus: 'Scene leadership',
+    dayOneComplete: true,
+  },
+];
