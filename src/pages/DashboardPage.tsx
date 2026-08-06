@@ -109,8 +109,7 @@ export function DashboardPage() {
           </div>
           <div className="cadet-queue">
             {mockCadets.map((cadet) => (
-              <Link className="cadet-row" to={`/cadets/${cadet.id}`} key={cadet.id}>
-                <div className="cadet-avatar">{cadet.name.split(' ').map((part) => part[0]).join('')}</div>
+              <Link className="cadet-row cadet-row-no-avatar" to={`/cadets/${cadet.id}`} key={cadet.id}>
                 <div className="cadet-main"><strong>{cadet.name}</strong><span>{cadet.employeeNumber}</span></div>
                 <div className="cadet-meta"><Clock3 size={14} /><span>{daysUntil(cadet.deadline)} days remaining</span></div>
                 <StatusBadge tone={cadet.stage === 'Awaiting Day 1' ? 'amber' : cadet.stage === 'Day 2 Booked' ? 'blue' : 'pink'}>{cadet.stage}</StatusBadge>

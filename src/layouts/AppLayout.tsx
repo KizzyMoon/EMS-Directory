@@ -36,9 +36,7 @@ interface NavGroup {
 }
 
 const navigation: NavGroup[] = [
-  {
-    items: [{ label: 'Dashboard', path: '/', icon: Gauge }],
-  },
+  { items: [{ label: 'Dashboard', path: '/', icon: Gauge }] },
   {
     label: 'Personnel',
     items: [
@@ -190,8 +188,7 @@ export function AppLayout() {
               ) : null}
             </div>
 
-            <button className="user-chip" type="button">
-              <div className="avatar">KM</div>
+            <button className="user-chip user-chip-text-only" type="button">
               <div className="user-copy">
                 <strong>Kizzy Moon</strong>
                 <span>FTO</span>

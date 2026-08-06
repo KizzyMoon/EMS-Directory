@@ -1,6 +1,5 @@
-import { ArrowLeft, BadgeCheck, Hash, MessageCircle, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Hash, History, MessageCircle, ShieldCheck } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import { PageHeader } from '../components/PageHeader';
 import { QualificationBadge } from '../components/QualificationBadge';
 import { StatusBadge } from '../components/StatusBadge';
 import { mockMembers } from '../data/mockMembers';
@@ -28,31 +27,50 @@ export function MemberProfilePage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Personnel record"
-        title={member.name}
-        description={`${member.rank} · ${member.callsign}`}
-        actions={<Link className="secondary-button inline-button" to="/roster"><ArrowLeft size={16} /> Back to roster</Link>}
-      />
+      <div className="member-page-toolbar">
+        <Link className="secondary-button inline-button" to="/roster"><ArrowLeft size={16} /> Back to roster</Link>
+      </div>
 
-      <section className="glass-card member-hero">
-        <div className="member-hero-avatar">{member.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
-        <div className="member-hero-copy">
-          <div className="member-title-row">
-            <div><h2>{member.name}</h2><p>{member.rank}</p></div>
-            <StatusBadge tone={member.status === 'Active' ? 'green' : member.status === 'LOA' ? 'amber' : 'neutral'}>{member.status}</StatusBadge>
+      <section className="glass-card member-command-header">
+        <div className="member-command-primary">
+          <span className="member-command-callsign">{member.callsign}</span>
+          <div>
+            <p className="eyebrow">Personnel record</p>
+            <h1>{member.name}</h1>
+            <span className="member-command-rank">{member.rank}</span>
           </div>
-          <div className="member-identity-strip">
-            <span><Hash size={15} /> {member.employeeNumber}</span>
-            <span><ShieldCheck size={15} /> {member.callsign}</span>
-            <span><UserRound size={15} /> {member.timezone}</span>
+        </div>
+
+        <div className="member-command-meta">
+          <div><span>Employee No.</span><strong>{member.employeeNumber}</strong></div>
+          <div><span>Timezone</span><strong>{member.timezone}</strong></div>
+          <div><span>Status</span><StatusBadge tone={member.status === 'Active' ? 'green' : member.status === 'LOA' ? 'amber' : 'neutral'}>{member.status}</StatusBadge></div>
+        </div>
+
+        <div className="member-command-quals">
+          <span>Qualifications</span>
+          <div className="qualification-profile-list">
+            {qualifications.length
+              ? qualifications.map((item) => <QualificationBadge key={item} label={item} />)
+              : <span className="muted-text">None recorded</span>}
           </div>
         </div>
       </section>
 
-      <div className="member-profile-grid">
-        <section className="glass-card member-section">
-          <div className="panel-header"><div><p className="eyebrow">Accounts</p><h2>Connected details</h2></div><MessageCircle size={18} /></div>
+      <nav className="member-tabs" aria-label="Member record sections">
+        <button className="member-tab active" type="button">Overview</button>
+        <button className="member-tab" type="button">Training</button>
+        <button className="member-tab" type="button">Ride Alongs</button>
+        <button className="member-tab" type="button">Notes</button>
+        <button className="member-tab" type="button">History</button>
+      </nav>
+
+      <div className="member-profile-grid compact-profile-grid">
+        <section className="glass-card member-section compact-member-section">
+          <div className="panel-header">
+            <div><p className="eyebrow">Accounts</p><h2>Connected details</h2></div>
+            <MessageCircle size={18} />
+          </div>
           <dl className="detail-list">
             <div><dt>Steam name</dt><dd>{member.steamName}</dd></div>
             <div><dt>Discord name</dt><dd>{member.discordName}</dd></div>
@@ -61,20 +79,27 @@ export function MemberProfilePage() {
           </dl>
         </section>
 
-        <section className="glass-card member-section">
-          <div className="panel-header"><div><p className="eyebrow">Capabilities</p><h2>Qualifications</h2></div><BadgeCheck size={18} /></div>
-          <div className="qualification-profile-list">
-            {qualifications.length ? qualifications.map((item) => <QualificationBadge key={item} label={item} />) : <p className="muted-text">No specialist qualifications currently recorded.</p>}
+        <section className="glass-card member-section compact-member-section">
+          <div className="panel-header">
+            <div><p className="eyebrow">Department</p><h2>Core details</h2></div>
+            <ShieldCheck size={18} />
           </div>
+          <dl className="detail-list">
+            <div><dt>Rank</dt><dd>{member.rank}</dd></div>
+            <div><dt>Callsign</dt><dd className="mono-value">{member.callsign}</dd></div>
+            <div><dt>Employee number</dt><dd className="mono-value">{member.employeeNumber}</dd></div>
+            <div><dt>Timezone</dt><dd>{member.timezone}</dd></div>
+          </dl>
         </section>
 
-        <section className="glass-card member-section member-section-wide">
-          <div className="panel-header"><div><p className="eyebrow">Record</p><h2>Department information</h2></div></div>
-          <div className="department-detail-grid">
-            <div><span>Rank</span><strong>{member.rank}</strong></div>
-            <div><span>Callsign</span><strong>{member.callsign}</strong></div>
-            <div><span>Employee number</span><strong>{member.employeeNumber}</strong></div>
-            <div><span>Timezone</span><strong>{member.timezone}</strong></div>
+        <section className="glass-card member-section member-section-wide compact-member-section">
+          <div className="panel-header">
+            <div><p className="eyebrow">Activity</p><h2>Recent record</h2></div>
+            <History size={18} />
+          </div>
+          <div className="member-activity-empty">
+            <Hash size={17} />
+            <span>Activity history will appear here once training, ride-along and rank records are connected.</span>
           </div>
         </section>
       </div>

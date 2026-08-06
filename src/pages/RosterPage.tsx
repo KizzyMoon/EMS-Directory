@@ -85,10 +85,12 @@ export function RosterPage() {
 
       <section className="glass-card roster-table-card">
         <div className="roster-table roster-table-head" aria-hidden="true">
-          <span>Member</span>
-          <span>Rank</span>
           <span>Callsign</span>
+          <span>Name</span>
+          <span>Rank</span>
           <span>Employee No.</span>
+          <span>Steam</span>
+          <span>Discord</span>
           <span>Timezone</span>
           <span>Qualifications</span>
           <span>Status</span>
@@ -106,16 +108,17 @@ export function RosterPage() {
 
             return (
               <Link className="roster-table roster-row" to={`/roster/${member.id}`} key={member.id}>
-                <div className="roster-person">
-                  <span className="member-avatar">{member.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</span>
-                  <span><strong>{member.name}</strong><small>{member.discordName}</small></span>
-                </div>
+                <span className="mono-value roster-callsign">{member.callsign}</span>
+                <span className="roster-name"><strong>{member.name}</strong></span>
                 <span>{member.rank}</span>
-                <span className="mono-value">{member.callsign}</span>
                 <span className="mono-value">{member.employeeNumber}</span>
+                <span>{member.steamName}</span>
+                <span>{member.discordName}</span>
                 <span>{member.timezone}</span>
                 <span className="qualification-list">
-                  {qualifications.length ? qualifications.map((item) => <QualificationBadge key={item} label={item} />) : <small className="muted-text">None</small>}
+                  {qualifications.length
+                    ? qualifications.map((item) => <QualificationBadge key={item} label={item} />)
+                    : <small className="muted-text">None</small>}
                 </span>
                 <StatusBadge tone={member.status === 'Active' ? 'green' : member.status === 'LOA' ? 'amber' : 'neutral'}>{member.status}</StatusBadge>
                 <ArrowRight size={16} className="row-arrow" />
