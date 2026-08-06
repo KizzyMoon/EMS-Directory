@@ -14,6 +14,13 @@ import {
   TrainingSessionDetailPage,
   TrainingSessionsPage,
 } from './modules/training';
+import {
+  ActiveRideAlongPage,
+  RideAlongDashboardPage,
+  RideAlongDetailPage,
+  RideAlongHistoryPage,
+  StartRideAlongPage,
+} from './modules/rideAlongs';
 
 const router = createHashRouter([
   {
@@ -30,7 +37,11 @@ const router = createHashRouter([
       { path: 'training/sessions/:sessionId', element: <TrainingSessionDetailPage /> },
       { path: 'training/attendance', element: <TrainingAttendancePage /> },
       { path: 'training/records', element: <TrainingRecordsPage /> },
-      { path: 'ride-alongs', element: <PlaceholderPage title="Ride Alongs" description="Available cadets, active sessions, feedback and history." /> },
+      { path: 'ride-alongs', element: <RideAlongDashboardPage /> },
+      { path: 'ride-alongs/start', element: <StartRideAlongPage /> },
+      { path: 'ride-alongs/active/:rideAlongId', element: <ActiveRideAlongPage /> },
+      { path: 'ride-alongs/history', element: <RideAlongHistoryPage /> },
+      { path: 'ride-alongs/:rideAlongId', element: <RideAlongDetailPage /> },
       { path: 'training-sheets', element: <PlaceholderPage title="Training Sheets" description="Confidential digital training progress for FTO and above." /> },
       { path: 'probationer-tests', element: <PlaceholderPage title="Probationer Tests" description="Permission-controlled test records and marking forms." /> },
       { path: 'knowledge-base', element: <PlaceholderPage title="Knowledge Base" description="Searchable SOPs, guides, procedures and policies." /> },

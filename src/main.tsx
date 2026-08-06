@@ -4,6 +4,7 @@ import App from './App';
 import './styles/global.css';
 import './styles/roster.css';
 import './styles/training.css';
+import './styles/ride-alongs.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
