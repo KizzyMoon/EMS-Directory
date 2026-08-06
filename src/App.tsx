@@ -7,6 +7,13 @@ import { MemberProfilePage } from './pages/MemberProfilePage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 import { QuickReferencePage } from './pages/QuickReferencePage';
 import { RosterPage } from './pages/RosterPage';
+import {
+  TrainingAttendancePage,
+  TrainingDashboardPage,
+  TrainingRecordsPage,
+  TrainingSessionDetailPage,
+  TrainingSessionsPage,
+} from './modules/training';
 
 const router = createHashRouter([
   {
@@ -18,7 +25,11 @@ const router = createHashRouter([
       { path: 'roster/:memberId', element: <MemberProfilePage /> },
       { path: 'cadets', element: <CadetsPage /> },
       { path: 'cadets/:cadetId', element: <CadetProfilePage /> },
-      { path: 'training', element: <PlaceholderPage title="Training" description="Day 1, Day 2, calendar and session sign-ups." /> },
+      { path: 'training', element: <TrainingDashboardPage /> },
+      { path: 'training/sessions', element: <TrainingSessionsPage /> },
+      { path: 'training/sessions/:sessionId', element: <TrainingSessionDetailPage /> },
+      { path: 'training/attendance', element: <TrainingAttendancePage /> },
+      { path: 'training/records', element: <TrainingRecordsPage /> },
       { path: 'ride-alongs', element: <PlaceholderPage title="Ride Alongs" description="Available cadets, active sessions, feedback and history." /> },
       { path: 'training-sheets', element: <PlaceholderPage title="Training Sheets" description="Confidential digital training progress for FTO and above." /> },
       { path: 'probationer-tests', element: <PlaceholderPage title="Probationer Tests" description="Permission-controlled test records and marking forms." /> },
