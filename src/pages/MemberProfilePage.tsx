@@ -1,4 +1,4 @@
-import { ArrowLeft, BadgeCheck, Hash, History, MessageCircle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Hash, History, MessageCircle, ShieldCheck } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { QualificationBadge } from '../components/QualificationBadge';
 import { StatusBadge } from '../components/StatusBadge';

@@ -23,11 +23,14 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { hasAnyPermission } from '../auth/permissions';
 
 interface NavItem {
   label: string;
   path: string;
   icon: typeof Gauge;
+  permissions?: Parameters<typeof hasAnyPermission>[1];
 }
 
 interface NavGroup {
@@ -63,11 +66,15 @@ const navigation: NavGroup[] = [
   },
   {
     label: 'System',
-    items: [{ label: 'Administration', path: '/administration', icon: Settings }],
+    items: [
+      { label: 'Administration', path: '/administration', icon: Settings, permissions: ['admin.read'] },
+      { label: 'Discord IDs', path: '/administration/discord-linking', icon: ShieldCheck, permissions: ['discord_ids.manage'] },
+    ],
   },
 ];
 
 export function AppLayout() {
+  const { user, status, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('ems-sidebar-collapsed') === 'true');
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('ems-theme') !== 'light');
@@ -116,7 +123,7 @@ export function AppLayout() {
           {navigation.map((group, groupIndex) => (
             <div className="nav-group" key={group.label ?? `group-${groupIndex}`}>
               {group.label ? <p className="nav-group-label">{group.label}</p> : null}
-              {group.items.map(({ label, path, icon: Icon }) => (
+              {group.items.filter((item) => !item.permissions || hasAnyPermission(user, item.permissions)).map(({ label, path, icon: Icon }) => (
                 <NavLink
                   key={path}
                   to={path}
@@ -188,10 +195,10 @@ export function AppLayout() {
               ) : null}
             </div>
 
-            <button className="user-chip user-chip-text-only" type="button">
+            <button className="user-chip user-chip-text-only" type="button" onClick={() => void logout()}>
               <div className="user-copy">
-                <strong>Kizzy Moon</strong>
-                <span>FTO</span>
+                <strong>{user?.displayName ?? 'Not signed in'}</strong>
+                <span>{status === 'unconfigured' ? 'Setup mode' : user?.rank ?? 'No rank'}</span>
               </div>
               <ChevronDown size={15} />
             </button>
