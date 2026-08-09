@@ -6,7 +6,7 @@ compatibility_date = "2026-08-08"
 FRONTEND_ORIGIN = "https://kizzymoon.github.io"
 FRONTEND_PATH = "/EMS-Directory/"
 SUPABASE_URL = "https://gikxajbpqzwnecvayecm.supabase.co"
-DISCORD_CLIENT_ID = "your_discord_client_id"
+DISCORD_CLIENT_ID = "1535999595144814662"
 
 # Set these in Cloudflare as secrets:
 # DISCORD_CLIENT_SECRET
