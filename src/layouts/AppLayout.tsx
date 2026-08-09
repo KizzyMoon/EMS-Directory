@@ -52,16 +52,16 @@ const navigation: NavGroup[] = [
     items: [
       { label: 'Sessions', path: '/training', icon: CalendarDays },
       { label: 'Ride Alongs', path: '/ride-alongs', icon: Ambulance },
-      { label: 'Training Sheets', path: '/training-sheets', icon: ClipboardList },
-      { label: 'Probationer Tests', path: '/probationer-tests', icon: ShieldCheck },
+      { label: 'Training Sheets', path: '/training-sheets', icon: ClipboardList, permissions: ['fto_resources.read'] },
+      { label: 'Probationer Tests', path: '/probationer-tests', icon: ShieldCheck, permissions: ['fto_resources.read'] },
     ],
   },
   {
     label: 'Resources',
     items: [
       { label: 'Quick Reference', path: '/quick-reference', icon: HeartPulse },
-      { label: 'Knowledge Base', path: '/knowledge-base', icon: BookOpen },
-      { label: 'Forms', path: '/forms', icon: FileText },
+      { label: 'Knowledge Base', path: '/knowledge-base', icon: BookOpen, permissions: ['fto_resources.read'] },
+      { label: 'Forms', path: '/forms', icon: FileText, permissions: ['fto_resources.read'] },
     ],
   },
   {
