@@ -125,7 +125,7 @@ h2 { font-family: var(--display-font); font-size: 21px; line-height: 1; margin-b
 .text-link { color: var(--accent-light); font-weight: 700; }
 .inline-link { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
 
-.action-strip { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+.action-strip { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
 .action-stat { min-height: 70px; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 3px; }
 .action-stat > div { display: flex; flex-direction: column; }
 .action-stat strong { font-family: var(--display-font); font-size: 32px; line-height: .85; text-shadow: 2px 0 #6d1630; }
