@@ -70,11 +70,15 @@ async function readSession(request: Request, env: Env) {
 }
 
 async function supabase(env: Env, path: string, init?: RequestInit) {
+  const authHeaders = env.SUPABASE_SERVICE_ROLE_KEY.startsWith('sb_secret_')
+    ? {}
+    : { authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` };
+
   return fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
     headers: {
       apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      ...authHeaders,
       'content-type': 'application/json',
       prefer: 'return=representation',
       ...init?.headers,
