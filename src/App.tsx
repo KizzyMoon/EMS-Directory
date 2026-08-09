@@ -1,5 +1,6 @@
 import { createHashRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
+import { RequirePermission } from './auth/RequirePermission';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppLayout } from './layouts/AppLayout';
 import { AccessDeniedPage } from './pages/AccessDeniedPage';
@@ -54,11 +55,16 @@ const router = createHashRouter([
           { path: 'ride-alongs/active/:rideAlongId', element: <ActiveRideAlongPage /> },
           { path: 'ride-alongs/history', element: <RideAlongHistoryPage /> },
           { path: 'ride-alongs/:rideAlongId', element: <RideAlongDetailPage /> },
-          { path: 'training-sheets', element: <PlaceholderPage title="Training Sheets" description="Confidential digital training progress for FTO and above." /> },
-          { path: 'probationer-tests', element: <PlaceholderPage title="Probationer Tests" description="Permission-controlled test records and marking forms." /> },
-          { path: 'knowledge-base', element: <PlaceholderPage title="Knowledge Base" description="Searchable SOPs, guides, procedures and policies." /> },
+          {
+            element: <RequirePermission permissions={['fto_resources.read']} />,
+            children: [
+              { path: 'training-sheets', element: <PlaceholderPage title="Training Sheets" description="Confidential digital training progress for FTO and above." /> },
+              { path: 'probationer-tests', element: <PlaceholderPage title="Probationer Tests" description="Permission-controlled test records and marking forms." /> },
+              { path: 'knowledge-base', element: <PlaceholderPage title="Knowledge Base" description="FTO-only SOPs, guides, procedures and policies." /> },
+              { path: 'forms', element: <PlaceholderPage title="Forms" description="FTO-only submissions, drafts and approval workflows." /> },
+            ],
+          },
           { path: 'quick-reference', element: <QuickReferencePage /> },
-          { path: 'forms', element: <PlaceholderPage title="Forms" description="Shared submissions, drafts and approval workflows." /> },
           { path: 'profile', element: <PlaceholderPage title="My Profile" description="Your EMS account, rank, qualifications and activity." /> },
           { path: 'administration', element: <PlaceholderPage title="Administration" description="Members, permissions, imports, audit logs and settings." /> },
           { path: 'administration/discord-linking', element: <DiscordLinkingPage /> },
