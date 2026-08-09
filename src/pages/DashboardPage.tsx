@@ -1,13 +1,9 @@
 import {
-  AlertTriangle,
   ArrowRight,
   CalendarClock,
   CheckCircle2,
-  ClipboardCheck,
   Clock3,
-  GraduationCap,
   Megaphone,
-  Plus,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
@@ -17,6 +13,27 @@ import { mockCadets } from '../data/mockCadets';
 const sessions = [
   { title: 'Day 1 Training', date: '8 August', time: '19:00', note: '1 FTO space available', tone: 'amber' as const },
   { title: 'Day 2 Training', date: '10 August', time: '20:00', note: 'Cadet spaces available', tone: 'green' as const },
+];
+
+const urgentActions = [
+  {
+    title: 'Submit ride-along feedback for Alex Morgan',
+    detail: 'Due today - logged 55m session with Kizzy Moon',
+    tone: 'red',
+    action: 'Submit',
+  },
+  {
+    title: 'Day 1 Training is short one FTO',
+    detail: 'Tonight, 19:00 - 2 of 3 FTO slots filled',
+    tone: 'amber',
+    action: 'Claim slot',
+  },
+  {
+    title: 'Taylor Reed is 6 days from deadline',
+    detail: 'M7-203 - Day 2 booked, no ride along logged yet',
+    tone: 'red',
+    action: 'View cadet',
+  },
 ];
 
 function daysUntil(deadline: string) {
@@ -32,28 +49,45 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Shared EMS system"
-        title="Operations Dashboard"
-        description="Live training information and actions available to your rank."
-        actions={<button className="primary-button"><Plus size={17} /> New record</button>}
+        title="Operations Board"
+        description="Live training status and the actions waiting on your rank today."
       />
 
       <section className="action-strip" aria-label="Department overview">
         <div className="action-stat">
-          <span className="stat-icon pink"><GraduationCap size={18} /></span>
           <div><strong>{mockCadets.length}</strong><span>Active cadets</span></div>
         </div>
         <div className="action-stat">
-          <span className="stat-icon blue"><ClipboardCheck size={18} /></span>
           <div><strong>{rideAlongReady.length}</strong><span>Ride-along ready</span></div>
         </div>
         <div className="action-stat">
-          <span className="stat-icon amber"><AlertTriangle size={18} /></span>
           <div><strong>{awaitingDayOne.length}</strong><span>Awaiting Day 1</span></div>
         </div>
         <div className="action-stat">
-          <span className="stat-icon green"><CalendarClock size={18} /></span>
           <div><strong>2</strong><span>Upcoming sessions</span></div>
+        </div>
+      </section>
+
+      <section className="glass-card priority-panel">
+        <div className="priority-header">
+          <span className="priority-marker" />
+          <div>
+            <p className="eyebrow">Needs Attention</p>
+            <h2>Action Before End of Shift</h2>
+          </div>
+        </div>
+        <div className="priority-list">
+          {urgentActions.map((item) => (
+            <article className={`priority-row priority-${item.tone}`} key={item.title}>
+              <div>
+                <strong>{item.title}</strong>
+                <span>{item.detail}</span>
+              </div>
+              <button className={item.action === 'Submit' ? 'primary-button compact-button' : 'secondary-button compact-button'} type="button">
+                {item.action}
+              </button>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -90,11 +124,10 @@ export function DashboardPage() {
               <p className="eyebrow">Your queue</p>
               <h2>To Do List</h2>
             </div>
-            <span className="count-chip">3 open</span>
+            <span className="count-chip">2 open</span>
           </div>
           <div className="task-list">
-            <label className="task-item"><input type="checkbox" /><span><strong>Submit ride-along feedback</strong><small>Alex Morgan · due today</small></span></label>
-            <label className="task-item"><input type="checkbox" /><span><strong>Check Day 1 attendance</strong><small>Training session · tomorrow</small></span></label>
+            <label className="task-item"><input type="checkbox" /><span><strong>Check Day 1 attendance</strong><small>Training session - tomorrow</small></span></label>
             <label className="task-item"><input type="checkbox" /><span><strong>Read latest announcement</strong><small>Posted by Command</small></span></label>
           </div>
         </section>
@@ -129,11 +162,11 @@ export function DashboardPage() {
           </div>
           <article className="announcement-item">
             <div className="announcement-icon"><Megaphone size={18} /></div>
-            <div><strong>Training server reminder</strong><p>All Day 1 and Day 2 sessions must be completed in the training server.</p><span>Today · Command</span></div>
+            <div><strong>Training server reminder</strong><p>All Day 1 and Day 2 sessions must be completed in the training server.</p><span>Today - Command</span></div>
           </article>
           <article className="announcement-item muted-item">
             <div className="announcement-icon"><CheckCircle2 size={18} /></div>
-            <div><strong>FTO sheet updates</strong><p>Please complete feedback before ending your shift.</p><span>Yesterday · FTO Lead</span></div>
+            <div><strong>FTO sheet updates</strong><p>Please complete feedback before ending your shift.</p><span>Yesterday - FTO Lead</span></div>
           </article>
         </section>
       </div>
