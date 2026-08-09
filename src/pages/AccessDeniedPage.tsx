@@ -5,6 +5,7 @@ export function AccessDeniedPage() {
   const [searchParams] = useSearchParams();
   const discordUserId = searchParams.get('discordUserId');
   const username = searchParams.get('username');
+  const reason = searchParams.get('reason');
 
   return (
     <main className="auth-screen">
@@ -17,7 +18,9 @@ export function AccessDeniedPage() {
         </p>
         {discordUserId ? (
           <div className="status-note blue-note">
-            Discord returned user ID <strong>{discordUserId}</strong>{username ? ` for ${username}` : ''}. Add this exact ID to the linked roster member in Supabase.
+            Discord returned user ID <strong>{discordUserId}</strong>{username ? ` for ${username}` : ''}. {reason === 'lookup'
+              ? 'The Supabase lookup failed, so check the Worker service-role secret and redeploy it.'
+              : 'Add this exact ID to the linked roster member in Supabase.'}
           </div>
         ) : null}
       </section>
