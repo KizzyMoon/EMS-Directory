@@ -1,6 +1,11 @@
 import { ShieldAlert } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 
 export function AccessDeniedPage() {
+  const [searchParams] = useSearchParams();
+  const discordUserId = searchParams.get('discordUserId');
+  const username = searchParams.get('username');
+
   return (
     <main className="auth-screen">
       <section className="auth-panel glass-card">
@@ -10,6 +15,11 @@ export function AccessDeniedPage() {
         <p>
           This Discord account is not linked to an active EMS roster member. Ask an administrator to confirm your roster entry and Discord user ID.
         </p>
+        {discordUserId ? (
+          <div className="status-note blue-note">
+            Discord returned user ID <strong>{discordUserId}</strong>{username ? ` for ${username}` : ''}. Add this exact ID to the linked roster member in Supabase.
+          </div>
+        ) : null}
       </section>
     </main>
   );
