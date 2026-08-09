@@ -112,7 +112,7 @@ export function AppLayout() {
           <div className="brand-mark"><HeartPulse size={22} /></div>
           <div className="brand-copy">
             <strong>EMS Directory</strong>
-            <span>Shared operations</span>
+            <span>Pillbox Ops - Shared</span>
           </div>
           <button className="icon-button mobile-only" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
             <X size={20} />
@@ -160,7 +160,7 @@ export function AppLayout() {
 
           <label className="search-box" htmlFor="global-search">
             <Search size={18} />
-            <input id="global-search" type="search" placeholder="Search people, cadets, guides…" />
+            <input id="global-search" type="search" placeholder="Search units, cadets, protocols..." />
             <kbd>Ctrl K</kbd>
           </label>
 
@@ -185,11 +185,11 @@ export function AppLayout() {
                   </div>
                   <div className="notification-item unread">
                     <strong>Day 1 training needs an FTO</strong>
-                    <span>8 August · 19:00</span>
+                    <span>8 August - 19:00</span>
                   </div>
                   <div className="notification-item">
                     <strong>Ride-along feedback saved</strong>
-                    <span>Alex Morgan · 12 minutes ago</span>
+                    <span>Alex Morgan - 12 minutes ago</span>
                   </div>
                 </div>
               ) : null}
