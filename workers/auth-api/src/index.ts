@@ -120,7 +120,11 @@ async function handleDiscordCallback(request: Request, env: Env) {
   });
   const discordUser = await discordResponse.json() as DiscordUser;
   const member = await findMemberByDiscordId(discordUser.id, env);
-  if (!member) return Response.redirect(fallback, 302);
+  if (!member) {
+    const deniedUrl = new URL(fallback);
+    deniedUrl.hash = `/access-denied?discordUserId=${encodeURIComponent(discordUser.id)}&username=${encodeURIComponent(discordUser.username)}`;
+    return Response.redirect(deniedUrl.toString(), 302);
+  }
 
   await supabase(env, `discord_accounts?discord_user_id=eq.${discordUser.id}`, {
     method: 'PATCH',
