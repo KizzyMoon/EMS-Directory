@@ -25,6 +25,7 @@ interface DatabaseMember {
     name: string;
     rank_permissions: Array<{ permission_key: string }>;
   };
+  member_permission_overrides?: Array<{ permission_key: string; effect: 'allow' | 'deny' }>;
 }
 
 const jsonHeaders = {
@@ -108,12 +109,19 @@ async function readMember(memberId: string, env: Env) {
 
   const [rank] = await rankResponse.json() as Array<{ name: string }>;
   const rankPermissions = await permissionsResponse.json() as Array<{ permission_key: string }>;
+  const overridesResponse = await supabase(
+    env,
+    `member_permission_overrides?member_id=eq.${encodeURIComponent(member.id)}&select=permission_key,effect`,
+  );
+  if (!overridesResponse.ok) throw new Error(`Supabase member permission override lookup failed: ${overridesResponse.status}`);
+  const memberPermissionOverrides = await overridesResponse.json() as Array<{ permission_key: string; effect: 'allow' | 'deny' }>;
   return {
     ...member,
     ranks: {
       name: rank?.name ?? 'EMS',
       rank_permissions: rankPermissions,
     },
+    member_permission_overrides: memberPermissionOverrides,
   };
 }
 
@@ -207,7 +215,20 @@ async function handleSession(request: Request, env: Env) {
   if (!member) {
     return Response.json({ user: null, unauthorised: true }, { headers: { ...jsonHeaders, ...corsHeaders(env) } });
   }
-  const permissions = member.ranks?.rank_permissions?.map((item: { permission_key: string }) => item.permission_key) ?? [];
+  const deniedPermissions = new Set(
+    member.member_permission_overrides
+      ?.filter((item) => item.effect === 'deny')
+      .map((item) => item.permission_key) ?? [],
+  );
+  const allowedPermissions = new Set(
+    member.ranks?.rank_permissions
+      ?.map((item: { permission_key: string }) => item.permission_key)
+      .filter((permission) => !deniedPermissions.has(permission)) ?? [],
+  );
+  member.member_permission_overrides
+    ?.filter((item) => item.effect === 'allow')
+    .forEach((item) => allowedPermissions.add(item.permission_key));
+  const permissions = [...allowedPermissions];
   return Response.json({
     user: {
       id: member.id,
