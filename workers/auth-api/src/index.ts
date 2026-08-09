@@ -15,6 +15,18 @@ interface DiscordUser {
   avatar?: string;
 }
 
+interface DatabaseMember {
+  id: string;
+  display_name: string;
+  callsign?: string;
+  status: string;
+  rank_id?: string | null;
+  ranks?: {
+    name: string;
+    rank_permissions: Array<{ permission_key: string }>;
+  };
+}
+
 const jsonHeaders = {
   'content-type': 'application/json; charset=utf-8',
 };
@@ -70,15 +82,46 @@ async function supabase(env: Env, path: string, init?: RequestInit) {
   });
 }
 
-async function findMemberByDiscordId(discordUserId: string, env: Env) {
-  const response = await supabase(
+async function readMember(memberId: string, env: Env) {
+  const memberResponse = await supabase(
     env,
-    `discord_accounts?discord_user_id=eq.${discordUserId}&select=member_id,members(id,display_name,callsign,status,ranks(name,rank_permissions(permission_key)))`,
+    `members?id=eq.${encodeURIComponent(memberId)}&select=id,display_name,callsign,status,rank_id`,
   );
-  const rows = await response.json() as Array<any>;
-  const row = rows[0];
-  if (!row?.members || row.members.status !== 'active') return null;
-  return row.members;
+  if (!memberResponse.ok) throw new Error(`Supabase member lookup failed: ${memberResponse.status}`);
+  const [member] = await memberResponse.json() as DatabaseMember[];
+  if (!member || member.status !== 'active') return null;
+
+  if (!member.rank_id) {
+    return { ...member, ranks: { name: 'EMS', rank_permissions: [] } };
+  }
+
+  const [rankResponse, permissionsResponse] = await Promise.all([
+    supabase(env, `ranks?id=eq.${encodeURIComponent(member.rank_id)}&select=name`),
+    supabase(env, `rank_permissions?rank_id=eq.${encodeURIComponent(member.rank_id)}&select=permission_key`),
+  ]);
+  if (!rankResponse.ok) throw new Error(`Supabase rank lookup failed: ${rankResponse.status}`);
+  if (!permissionsResponse.ok) throw new Error(`Supabase permission lookup failed: ${permissionsResponse.status}`);
+
+  const [rank] = await rankResponse.json() as Array<{ name: string }>;
+  const rankPermissions = await permissionsResponse.json() as Array<{ permission_key: string }>;
+  return {
+    ...member,
+    ranks: {
+      name: rank?.name ?? 'EMS',
+      rank_permissions: rankPermissions,
+    },
+  };
+}
+
+async function findMemberByDiscordId(discordUserId: string, env: Env) {
+  const accountResponse = await supabase(
+    env,
+    `discord_accounts?discord_user_id=eq.${encodeURIComponent(discordUserId)}&select=member_id`,
+  );
+  if (!accountResponse.ok) throw new Error(`Supabase Discord lookup failed: ${accountResponse.status}`);
+  const [account] = await accountResponse.json() as Array<{ member_id: string | null }>;
+  if (!account?.member_id) return null;
+  return readMember(account.member_id, env);
 }
 
 async function handleDiscordStart(request: Request, env: Env) {
@@ -119,7 +162,14 @@ async function handleDiscordCallback(request: Request, env: Env) {
     headers: { authorization: `Bearer ${token.access_token}` },
   });
   const discordUser = await discordResponse.json() as DiscordUser;
-  const member = await findMemberByDiscordId(discordUser.id, env);
+  let member: DatabaseMember | null = null;
+  try {
+    member = await findMemberByDiscordId(discordUser.id, env);
+  } catch {
+    const deniedUrl = new URL(fallback);
+    deniedUrl.hash = `/access-denied?discordUserId=${encodeURIComponent(discordUser.id)}&username=${encodeURIComponent(discordUser.username)}&reason=lookup`;
+    return Response.redirect(deniedUrl.toString(), 302);
+  }
   if (!member) {
     const deniedUrl = new URL(fallback);
     deniedUrl.hash = `/access-denied?discordUserId=${encodeURIComponent(discordUser.id)}&username=${encodeURIComponent(discordUser.username)}`;
@@ -149,12 +199,8 @@ async function handleDiscordCallback(request: Request, env: Env) {
 async function handleSession(request: Request, env: Env) {
   const session = await readSession(request, env);
   if (!session) return Response.json({ user: null }, { headers: { ...jsonHeaders, ...corsHeaders(env) } });
-  const response = await supabase(
-    env,
-    `members?id=eq.${session.memberId}&select=id,display_name,callsign,status,ranks(name,rank_permissions(permission_key))`,
-  );
-  const [member] = await response.json() as Array<any>;
-  if (!member || member.status !== 'active') {
+  const member = await readMember(session.memberId, env);
+  if (!member) {
     return Response.json({ user: null, unauthorised: true }, { headers: { ...jsonHeaders, ...corsHeaders(env) } });
   }
   const permissions = member.ranks?.rank_permissions?.map((item: { permission_key: string }) => item.permission_key) ?? [];
