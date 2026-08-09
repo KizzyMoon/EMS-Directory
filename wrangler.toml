@@ -1,0 +1,14 @@
+name = "ems-directory-auth"
+main = "workers/auth-api/src/index.ts"
+compatibility_date = "2026-08-08"
+
+[vars]
+FRONTEND_ORIGIN = "https://kizzymoon.github.io"
+FRONTEND_PATH = "/EMS-Directory/"
+SUPABASE_URL = "https://gikxajbpqzwnecvayecm.supabase.co"
+DISCORD_CLIENT_ID = "your_discord_client_id"
+
+# Set these in Cloudflare as secrets:
+# DISCORD_CLIENT_SECRET
+# SUPABASE_SERVICE_ROLE_KEY
+# SESSION_SECRET
