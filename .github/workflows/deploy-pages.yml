@@ -34,9 +34,9 @@ jobs:
         run: npm run build
         env:
           VITE_BASE_PATH: /EMS-Directory/
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-          VITE_DISCORD_CLIENT_ID: ${{ vars.VITE_DISCORD_CLIENT_ID }}
-          VITE_DISCORD_REDIRECT_URL: ${{ vars.VITE_DISCORD_REDIRECT_URL }}
+          VITE_API_BASE_URL: https://ems-directory.chelseacaitline.workers.dev
+          VITE_DISCORD_CLIENT_ID: "1535999595144814662"
+          VITE_DISCORD_REDIRECT_URL: https://ems-directory.chelseacaitline.workers.dev/auth/discord/callback
           VITE_DISCORD_GUILD_ID: ${{ vars.VITE_DISCORD_GUILD_ID }}
 
       - name: Upload artifact
