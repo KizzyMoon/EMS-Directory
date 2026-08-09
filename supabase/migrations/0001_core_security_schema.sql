@@ -99,6 +99,7 @@ insert into public.permissions (key, description) values
   ('cadets.read', 'View authorised cadet information'),
   ('training.read', 'View authorised training records'),
   ('training.manage', 'Create and edit training records'),
+  ('fto_resources.read', 'View FTO and above sheets, forms, SOPs and interview records'),
   ('probationer_tests.read', 'View authorised probationer tests'),
   ('probationer_tests.manage', 'Create and edit probationer tests'),
   ('documents.read', 'Read published authorised documents'),
