@@ -44,6 +44,7 @@ function daysUntil(deadline: string) {
 
 export function DashboardPage() {
   const awaitingDayOne = mockCadets.filter((cadet) => cadet.stage === 'Awaiting Day 1');
+  const awaitingDayTwo = mockCadets.filter((cadet) => cadet.stage === 'Day 2 Booked');
   const rideAlongReady = mockCadets.filter((cadet) => cadet.stage === 'Available for Ride Alongs');
 
   return (
@@ -62,6 +63,9 @@ export function DashboardPage() {
         </div>
         <div className="action-stat">
           <div><strong>{awaitingDayOne.length}</strong><span>Awaiting Day 1</span></div>
+        </div>
+        <div className="action-stat">
+          <div><strong>{awaitingDayTwo.length}</strong><span>Awaiting Day 2</span></div>
         </div>
         <div className="action-stat">
           <div><strong>2</strong><span>Upcoming sessions</span></div>
