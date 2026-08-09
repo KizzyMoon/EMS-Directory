@@ -6,6 +6,7 @@ export type Permission =
   | 'cadets.read'
   | 'training.read'
   | 'training.manage'
+  | 'fto_resources.read'
   | 'probationer_tests.read'
   | 'probationer_tests.manage'
   | 'documents.read'
