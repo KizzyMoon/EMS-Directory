@@ -1,4 +1,4 @@
-import { ArrowLeft, Hash, History, MessageCircle, Pencil, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Pencil, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -9,8 +9,14 @@ import { StatusBadge } from '../components/StatusBadge';
 import { getRosterMember } from '../lib/rosterApi';
 import type { EmsMember } from '../types/member';
 
-export function MemberProfilePage() {
-  const { memberId } = useParams();
+interface MemberProfilePageProps {
+  memberIdOverride?: string;
+  self?: boolean;
+}
+
+export function MemberProfilePage({ memberIdOverride, self = false }: MemberProfilePageProps = {}) {
+  const { memberId: routeMemberId } = useParams();
+  const memberId = memberIdOverride ?? routeMemberId;
   const { user } = useAuth();
   const canManage = hasAnyPermission(user, ['roster.manage']);
   const [member, setMember] = useState<EmsMember | null>(null);
@@ -63,7 +69,7 @@ export function MemberProfilePage() {
   return (
     <>
       <div className="member-page-toolbar member-page-actions">
-        <Link className="secondary-button inline-button" to="/roster"><ArrowLeft size={16} /> Back to roster</Link>
+        {!self ? <Link className="secondary-button inline-button" to="/roster"><ArrowLeft size={16} /> Back to roster</Link> : <span />}
         {canManage && member.source !== 'Google Sheets' ? <button className="primary-button inline-button" type="button" onClick={() => setEditorOpen(true)}><Pencil size={16} /> Edit member</button> : null}
       </div>
 
@@ -71,7 +77,7 @@ export function MemberProfilePage() {
         <div className="member-command-primary">
           <span className="member-command-callsign">{member.callsign}</span>
           <div>
-            <p className="eyebrow">Personnel record</p>
+            <p className="eyebrow">{self ? 'My profile' : 'Personnel record'}</p>
             <h1>{member.name}</h1>
             <span className="member-command-rank">{member.rank}</span>
           </div>
@@ -92,14 +98,6 @@ export function MemberProfilePage() {
           </div>
         </div>
       </section>
-
-      <nav className="member-tabs" aria-label="Member record sections">
-        <button className="member-tab active" type="button">Overview</button>
-        <button className="member-tab" type="button">Training</button>
-        <button className="member-tab" type="button">Ride Alongs</button>
-        <button className="member-tab" type="button">Notes</button>
-        <button className="member-tab" type="button">History</button>
-      </nav>
 
       <div className="member-profile-grid compact-profile-grid">
         <section className="glass-card member-section compact-member-section">
@@ -128,16 +126,6 @@ export function MemberProfilePage() {
           </dl>
         </section>
 
-        <section className="glass-card member-section member-section-wide compact-member-section">
-          <div className="panel-header">
-            <div><p className="eyebrow">Activity</p><h2>Recent record</h2></div>
-            <History size={18} />
-          </div>
-          <div className="member-activity-empty">
-            <Hash size={17} />
-            <span>Activity history will appear here once training, ride-along and rank records are connected.</span>
-          </div>
-        </section>
       </div>
 
       <MemberEditorDrawer
