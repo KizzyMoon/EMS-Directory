@@ -87,9 +87,11 @@ export function TrainingSessionDetailPage() {
             {ftos.map((person) => <div key={person.id}><span className="mono-value">{person.callsign}</span><strong>{person.memberName}</strong><StatusBadge tone="blue">{person.status}</StatusBadge></div>)}
             {!ftos.length ? <p className="muted-text">No FTOs have signed up.</p> : null}
           </div>
-          <button className="secondary-button full-width-button" type="button" disabled={session.source === 'Google Sheets' || Boolean(currentSignup) || savingRole !== null} onClick={() => void signup('FTO')}>
-            {currentSignup ? `Signed up as ${currentSignup.role}` : savingRole === 'FTO' ? 'Saving…' : 'Volunteer as FTO'}
-          </button>
+          {session.source !== 'Google Sheets' ? (
+            <button className="secondary-button full-width-button" type="button" disabled={Boolean(currentSignup) || savingRole !== null} onClick={() => void signup('FTO')}>
+              {currentSignup ? `Signed up as ${currentSignup.role}` : savingRole === 'FTO' ? 'Saving…' : 'Volunteer as FTO'}
+            </button>
+          ) : null}
         </section>
 
         <section className="glass-card">
@@ -98,9 +100,11 @@ export function TrainingSessionDetailPage() {
             {cadets.map((person) => <div key={person.id}><span className="mono-value">{person.callsign}</span><strong>{person.memberName}</strong><StatusBadge tone="pink">{person.status}</StatusBadge></div>)}
             {!cadets.length ? <p className="muted-text">No cadets have signed up.</p> : null}
           </div>
-          <button className="primary-button full-width-button" type="button" disabled={session.source === 'Google Sheets' || Boolean(currentSignup) || savingRole !== null} onClick={() => void signup('Cadet')}>
-            {currentSignup ? `Signed up as ${currentSignup.role}` : savingRole === 'Cadet' ? 'Saving…' : 'Sign up'}
-          </button>
+          {session.source !== 'Google Sheets' ? (
+            <button className="primary-button full-width-button" type="button" disabled={Boolean(currentSignup) || savingRole !== null} onClick={() => void signup('Cadet')}>
+              {currentSignup ? `Signed up as ${currentSignup.role}` : savingRole === 'Cadet' ? 'Saving…' : 'Sign up'}
+            </button>
+          ) : null}
         </section>
 
         <section className="glass-card">

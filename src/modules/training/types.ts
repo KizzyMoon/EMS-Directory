@@ -46,16 +46,3 @@ export interface TrainingSession {
   activity: TrainingActivity[];
   source: 'Google Sheets' | 'EMS Directory';
 }
-
-export interface TrainingSessionInput {
-  type: TrainingType;
-  title: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  server: string;
-  cadetCapacity: number;
-  ftoCapacity: number;
-  notes: string;
-}

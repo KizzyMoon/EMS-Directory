@@ -1,4 +1,4 @@
-import { CheckCircle2, RefreshCw } from 'lucide-react';
+import { CheckCircle2, ExternalLink, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../../auth/AuthContext';
 import { hasPermission } from '../../../auth/permissions';
@@ -58,10 +58,10 @@ export function TrainingAttendancePage() {
 
   return (
     <>
-      <PageHeader eyebrow="Training module" title="Attendance" description="Record attendance without editing a spreadsheet." />
+      <PageHeader eyebrow="Training module" title="Attendance" description="Review live attendance from the main Google Training Attendance Sheet." />
       <TrainingNav />
 
-      <div className="status-note blue-note">Attendance remains managed in the main Google Training Attendance Sheet. This page shows the current live booking list as read-only.</div>
+      <div className="status-note blue-note">Attendance remains managed in the main Google Training Attendance Sheet. This page shows the current live booking list as read-only. <a className="inline-link" href="https://docs.google.com/spreadsheets/d/1twcPjyyf3tuwq4L12OhmLz6QkF9_u8I5ai5qn9wAisg/edit" target="_blank" rel="noreferrer">Open sheet <ExternalLink size={14} /></a></div>
 
       {error ? <div className="status-note red-note"><span>{error}</span><button className="secondary-button compact-button" type="button" onClick={() => void reload()}><RefreshCw size={15} /> Try again</button></div> : null}
 
@@ -89,10 +89,18 @@ export function TrainingAttendancePage() {
               <div className="attendance-table attendance-row" key={signup.id}>
                 <div><strong>{signup.memberName}</strong><span className="mono-value">{signup.callsign}</span></div>
                 <span>{signup.role}</span>
-                <select disabled={!canManage || selectedSession.source === 'Google Sheets'} value={attendance[signup.memberId] ?? 'Pending'} onChange={(event) => setAttendance((current) => ({ ...current, [signup.memberId]: event.target.value as AttendanceStatus }))}>
-                  {attendanceOptions.map((option) => <option key={option}>{option}</option>)}
-                </select>
-                <input disabled={!canManage || selectedSession.source === 'Google Sheets'} value={notes[signup.memberId] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [signup.memberId]: event.target.value }))} placeholder="Optional note…" />
+                {selectedSession.source === 'Google Sheets' ? (
+                  <StatusBadge tone={(attendance[signup.memberId] ?? 'Pending') === 'Attended' ? 'green' : 'amber'}>{attendance[signup.memberId] ?? 'Pending'}</StatusBadge>
+                ) : (
+                  <select disabled={!canManage} value={attendance[signup.memberId] ?? 'Pending'} onChange={(event) => setAttendance((current) => ({ ...current, [signup.memberId]: event.target.value as AttendanceStatus }))}>
+                    {attendanceOptions.map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                )}
+                {selectedSession.source === 'Google Sheets' ? (
+                  <span className="muted-text">{notes[signup.memberId] || '—'}</span>
+                ) : (
+                  <input disabled={!canManage} value={notes[signup.memberId] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [signup.memberId]: event.target.value }))} placeholder="Optional note…" />
+                )}
               </div>
             ))}
             {canManage && selectedSession.source !== 'Google Sheets' ? <div className="attendance-actions"><button className="primary-button" disabled={saving} type="button" onClick={() => void save()}><CheckCircle2 size={16} /> {saving ? 'Saving…' : 'Save attendance'}</button></div> : null}
