@@ -17,11 +17,14 @@ export interface GoogleRosterMember {
 export interface GoogleTrainingBookings {
   dayOne: Set<string>;
   dayTwo: Set<string>;
+  dayOneComplete: Set<string>;
+  dayTwoComplete: Set<string>;
 }
 
 export interface GoogleTrainingAttendee {
   employeeNumber: string;
   name: string;
+  complete: boolean;
 }
 
 export interface GoogleTrainingSession {
@@ -153,11 +156,17 @@ export async function readGoogleTrainingBookings(url: string, forceRefresh = fal
   if (!forceRefresh && trainingCache && trainingCache.expiresAt > Date.now()) return trainingCache.value;
   const rows = await fetchCsv(url);
   const inputRow = rows.findIndex((row) => row.some((value) => value.includes('Input Employee # here')));
-  if (inputRow < 0) throw new Error('Google training booking columns were not found');
+  const staffRow = rows.findIndex((row) => row.some((value) => value.includes("Supervisors, FTO's & Helpers Sign up Below")));
+  if (inputRow < 0 || staffRow <= inputRow) throw new Error('Google training booking columns were not found');
   const bookingColumns = rows[inputRow]
     .map((value, index) => value.includes('Input Employee # here') ? index : -1)
     .filter((index) => index >= 0);
-  const bookings: GoogleTrainingBookings = { dayOne: new Set(), dayTwo: new Set() };
+  const bookings: GoogleTrainingBookings = {
+    dayOne: new Set(),
+    dayTwo: new Set(),
+    dayOneComplete: new Set(),
+    dayTwoComplete: new Set(),
+  };
 
   bookingColumns.forEach((column) => {
     const title = rows.slice(0, inputRow)
@@ -165,9 +174,13 @@ export async function readGoogleTrainingBookings(url: string, forceRefresh = fal
       .find((value) => /DAY [12]/i.test(value));
     if (!title) return;
     const destination = /DAY 2/i.test(title) ? bookings.dayTwo : bookings.dayOne;
-    rows.slice(inputRow + 1).forEach((row) => {
+    const completionDestination = /DAY 2/i.test(title) ? bookings.dayTwoComplete : bookings.dayOneComplete;
+    rows.slice(inputRow + 1, staffRow).forEach((row) => {
       const employeeNumber = cell(row, column);
-      if (/^\d+$/.test(employeeNumber)) destination.add(employeeNumber);
+      if (/^\d+$/.test(employeeNumber)) {
+        destination.add(employeeNumber);
+        if (booleanCell(row, column + 3)) completionDestination.add(employeeNumber);
+      }
     });
   });
   trainingCache = { expiresAt: Date.now() + 60_000, value: bookings };
@@ -194,7 +207,7 @@ function attendees(rows: string[][], column: number, start: number, end: number)
   return rows.slice(start, end).flatMap((row) => {
     const employeeNumber = cell(row, column);
     if (!/^\d+$/.test(employeeNumber)) return [];
-    return [{ employeeNumber, name: cell(row, column + 1) }];
+    return [{ employeeNumber, name: cell(row, column + 1), complete: booleanCell(row, column + 3) }];
   });
 }
 

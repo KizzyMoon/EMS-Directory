@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarClock, Clock3, FileText, LockKeyhole, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Clock3, ExternalLink, FileText, LockKeyhole, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../../auth/AuthContext';
@@ -74,9 +74,11 @@ export function CadetProfilePage() {
         eyebrow="Cadet record"
         title={cadet.name}
         description={`${cadet.callsign} · ${cadet.employeeNumber}`}
-        actions={<Link className="secondary-button" to="/cadets"><ArrowLeft size={16} /> Back</Link>}
+        actions={<div className="roster-header-actions"><Link className="secondary-button" to="/cadets"><ArrowLeft size={16} /> Back</Link>{canSeeInternal ? <a className="secondary-button" href="https://docs.google.com/spreadsheets/d/1g3XXntoqyA9XMgEcXwq89RyqBUymJCpVbG1vlE4BSPY/edit#gid=1321749468" target="_blank" rel="noreferrer">Detailed tracker <ExternalLink size={16} /></a> : null}</div>}
       />
       <CadetNav />
+
+      {cadet.source === 'Google Sheets' ? <div className="status-note blue-note">Identity, booking and completion information below is live from the main roster and Training Attendance Sheet. Detailed assessments remain in the restricted Cadet Progress Tracker.</div> : null}
 
       <section className="cadet-profile-header">
         <div><span>Stage</span><StatusBadge tone={cadetStageTone(cadet.stage)}>{cadet.stage}</StatusBadge></div>

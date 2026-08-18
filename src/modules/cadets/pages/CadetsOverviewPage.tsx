@@ -47,6 +47,10 @@ export function CadetsOverviewPage() {
     void loadCadets();
   }, [loadCadets]);
 
+  useEffect(() => {
+    setStage(requestedStage ?? 'All stages');
+  }, [requestedStage]);
+
   const cadets = useMemo(() => records.filter((cadet) => {
     const text = `${cadet.name} ${cadet.callsign} ${cadet.employeeNumber}`.toLowerCase();
     const remaining = daysRemaining(cadet.deadline);
@@ -66,9 +70,9 @@ export function CadetsOverviewPage() {
 
       <section className="cadet-summary">
         <div><strong>{records.length}</strong><span>Active cadets</span></div>
-        <div><strong>{records.filter((cadet) => cadet.stage === 'Awaiting Day 1').length}</strong><span>Awaiting Day 1</span></div>
-        <div><strong>{records.filter((cadet) => cadet.stage === 'Available for Ride Alongs').length}</strong><span>Ride-along ready</span></div>
-        <div><strong>{records.filter((cadet) => { const remaining = daysRemaining(cadet.deadline); return remaining !== null && remaining <= 10; }).length}</strong><span>Near deadline</span></div>
+        <div><strong>{records.filter((cadet) => cadet.stage === 'Day 1 Signed Up').length}</strong><span>Booked Day 1</span></div>
+        <div><strong>{records.filter((cadet) => cadet.dayOneComplete).length}</strong><span>Day 1 complete</span></div>
+        <div><strong>{records.filter((cadet) => cadet.stage === 'Day 2 Booked').length}</strong><span>Booked Day 2</span></div>
       </section>
 
       {loadError ? (
