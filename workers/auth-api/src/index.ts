@@ -445,7 +445,7 @@ function mapGoogleRosterMember(member: GoogleRosterMember, databaseMember?: Data
     discordName: member.discordName || account?.display_name || account?.username || 'Not linked',
     discordUserId: account?.discord_user_id ?? null,
     timezone: member.timezone || 'Unknown',
-    status: databaseMember ? frontendStatus(databaseMember.status) : 'Active' as const,
+    status: 'Active' as const,
     qualifications: member.qualifications,
     source: 'Google Sheets' as const,
   };
@@ -455,21 +455,14 @@ async function readRoster(env: Env, memberId?: string) {
   const databaseMembers = await readDatabaseRosterMembers(env);
   let members: Array<ReturnType<typeof mapRosterMember> | ReturnType<typeof mapGoogleRosterMember>> = databaseMembers.map(mapRosterMember);
   if (env.GOOGLE_ROSTER_CSV_URL) {
-    try {
-      const sheetMembers = await readGoogleRoster(env.GOOGLE_ROSTER_CSV_URL);
-      members = sheetMembers.map((sheetMember) => {
-        const databaseMember = databaseMembers.find((candidate) =>
-          candidate.employee_number === sheetMember.employeeNumber
-          || candidate.callsign?.toLowerCase() === sheetMember.callsign.toLowerCase(),
-        );
-        return mapGoogleRosterMember(sheetMember, databaseMember);
-      });
-    } catch (error) {
-      console.error(JSON.stringify({
-        message: 'Google roster fallback failed; using Supabase roster',
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    }
+    const sheetMembers = await readGoogleRoster(env.GOOGLE_ROSTER_CSV_URL);
+    members = sheetMembers.map((sheetMember) => {
+      const databaseMember = databaseMembers.find((candidate) =>
+        candidate.employee_number === sheetMember.employeeNumber
+        || candidate.callsign?.toLowerCase() === sheetMember.callsign.toLowerCase(),
+      );
+      return mapGoogleRosterMember(sheetMember, databaseMember);
+    });
   }
   return memberId ? members.filter((member) => member.id === memberId) : members;
 }
@@ -683,32 +676,18 @@ async function readCadets(env: Env, memberId?: string) {
     return memberId ? cadets.filter((cadet) => cadet.memberId === memberId) : cadets;
   }
 
-  const [roster, databaseCadets] = await Promise.all([
-    readRoster(env),
-    readDatabaseCadetMembers(env),
-  ]);
+  const roster = await readRoster(env);
   let dayOneBookings = new Set<string>();
   let dayTwoBookings = new Set<string>();
   let dayOneCompletions = new Set<string>();
   if (env.GOOGLE_TRAINING_CSV_URL) {
-    try {
-      const bookings = await readGoogleTrainingBookings(env.GOOGLE_TRAINING_CSV_URL);
-      dayOneBookings = bookings.dayOne;
-      dayTwoBookings = bookings.dayTwo;
-      dayOneCompletions = bookings.dayOneComplete;
-    } catch (error) {
-      console.error(JSON.stringify({
-        message: 'Google training booking lookup failed',
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    }
+    const bookings = await readGoogleTrainingBookings(env.GOOGLE_TRAINING_CSV_URL);
+    dayOneBookings = bookings.dayOne;
+    dayTwoBookings = bookings.dayTwo;
+    dayOneCompletions = bookings.dayOneComplete;
   }
 
   const cadets = roster.filter((member) => member.rank === 'Cadet').map((member) => {
-    const databaseCadet = databaseCadets.find((candidate) =>
-      candidate.id === member.id || candidate.employee_number === member.employeeNumber,
-    );
-    const record = databaseCadet?.cadet_records?.[0];
     const sheetDayOneComplete = dayOneCompletions.has(member.employeeNumber);
     const bookingStage = dayTwoBookings.has(member.employeeNumber)
       ? 'Day 2 Booked'
@@ -723,20 +702,19 @@ async function readCadets(env: Env, memberId?: string) {
       name: member.name,
       employeeNumber: member.employeeNumber,
       callsign: member.callsign,
-      startDate: record?.start_date ?? null,
-      deadline: record?.deadline ?? null,
-      stage: record?.stage ?? bookingStage,
-      dayOneComplete: record?.day_one_complete ?? sheetDayOneComplete,
-      dayOneSessionId: record?.day_one_session_id ?? undefined,
-      dayTwoSessionId: record?.day_two_session_id ?? undefined,
-      nextStep: record?.next_step
-        ?? (bookingStage === 'Day 2 Booked'
+      startDate: null,
+      deadline: null,
+      stage: bookingStage,
+      dayOneComplete: sheetDayOneComplete,
+      dayOneSessionId: undefined,
+      dayTwoSessionId: undefined,
+      nextStep: bookingStage === 'Day 2 Booked'
           ? 'Booked on the current Day 2 training sheet.'
           : bookingStage === 'Available for Ride Alongs'
             ? 'Day 1 is marked complete on the current training sheet; ready for ride-along training.'
           : bookingStage === 'Day 1 Signed Up'
             ? 'Booked on the current Day 1 training sheet.'
-            : 'No current Day 1 or Day 2 booking is listed.'),
+            : 'No current Day 1 or Day 2 booking is listed.',
       source: 'Google Sheets' as const,
     };
   });
@@ -1436,7 +1414,7 @@ async function handleHealth(env: Env) {
   const healthy = roster.status === 'fulfilled' && training.status === 'fulfilled';
   return apiJson(env, {
     ok: healthy,
-    version: 'google-sources-v2',
+    version: 'google-sources-v3',
     sources: {
       roster: { ok: roster.status === 'fulfilled', count: roster.status === 'fulfilled' ? roster.value.length : 0 },
       training: { ok: training.status === 'fulfilled', count: training.status === 'fulfilled' ? training.value.length : 0 },
