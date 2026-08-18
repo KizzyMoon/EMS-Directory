@@ -1,11 +1,12 @@
-import { ArrowLeft, CalendarClock, Clock3, FileText, LockKeyhole } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Clock3, FileText, LockKeyhole, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PageHeader } from '../../../components/PageHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
+import { getCadet } from '../../../lib/cadetsApi';
 import { feedbackTone, formatDuration, formatRideAlongDate } from '../../rideAlongs/utils';
 import { formatTrainingDate, sessionTone } from '../../training/utils';
 import { CadetNav } from '../components/CadetNav';
-import { mockCadetRecords } from '../data/mockCadetRecords';
 import {
   getCadetFeedback,
   getCadetRideAlongs,
@@ -13,11 +14,40 @@ import {
   getCadetTrainingSessions,
   getUpcomingCadetSession,
 } from '../selectors';
+import type { CadetRecord } from '../types';
 import { cadetStageTone, daysRemaining, formatCadetDate } from '../utils';
 
 export function CadetProfilePage() {
   const { cadetId } = useParams();
-  const cadet = mockCadetRecords.find((item) => item.id === cadetId);
+  const [cadet, setCadet] = useState<CadetRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadCadet = useCallback(async () => {
+    if (!cadetId) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      setCadet(await getCadet(cadetId));
+    } catch (error) {
+      setCadet(null);
+      setLoadError(error instanceof Error ? error.message : 'Unable to load this cadet record.');
+    } finally {
+      setLoading(false);
+    }
+  }, [cadetId]);
+
+  useEffect(() => {
+    void loadCadet();
+  }, [loadCadet]);
+
+  if (loading) {
+    return <section className="glass-card empty-state"><RefreshCw className="spin-icon" size={20} /><h1>Loading cadet…</h1></section>;
+  }
+
+  if (loadError) {
+    return <section className="glass-card empty-state"><h1>Unable to load cadet</h1><p>{loadError}</p><button className="secondary-button inline-button" type="button" onClick={() => void loadCadet()}><RefreshCw size={16} /> Try again</button></section>;
+  }
 
   if (!cadet) {
     return <section className="glass-card empty-state"><h1>Cadet not found</h1><Link to="/cadets">Return to cadets</Link></section>;
@@ -44,7 +74,7 @@ export function CadetProfilePage() {
         <div><span>Stage</span><StatusBadge tone={cadetStageTone(cadet.stage)}>{cadet.stage}</StatusBadge></div>
         <div><span>Started</span><strong>{formatCadetDate(cadet.startDate)}</strong></div>
         <div><span>Deadline</span><strong>{formatCadetDate(cadet.deadline)}</strong></div>
-        <div><span>Days remaining</span><strong className={remaining <= 10 ? 'deadline-text' : ''}>{remaining}</strong></div>
+        <div><span>Days remaining</span><strong className={remaining !== null && remaining <= 10 ? 'deadline-text' : ''}>{remaining ?? 'Not set'}</strong></div>
       </section>
 
       <section className="cadet-progress-strip">

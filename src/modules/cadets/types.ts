@@ -11,8 +11,8 @@ export interface CadetRecord {
   name: string;
   employeeNumber: string;
   callsign: string;
-  startDate: string;
-  deadline: string;
+  startDate: string | null;
+  deadline: string | null;
   stage: CadetStage;
   dayOneComplete: boolean;
   dayOneSessionId?: string;

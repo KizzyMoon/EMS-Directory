@@ -43,8 +43,13 @@ const router = createHashRouter([
           { index: true, element: <DashboardPage /> },
           { path: 'roster', element: <RosterPage /> },
           { path: 'roster/:memberId', element: <MemberProfilePage /> },
-          { path: 'cadets', element: <CadetsOverviewPage /> },
-          { path: 'cadets/:cadetId', element: <CadetProfilePage /> },
+          {
+            element: <RequirePermission permissions={['cadets.read']} />,
+            children: [
+              { path: 'cadets', element: <CadetsOverviewPage /> },
+              { path: 'cadets/:cadetId', element: <CadetProfilePage /> },
+            ],
+          },
           { path: 'training', element: <TrainingDashboardPage /> },
           { path: 'training/sessions', element: <TrainingSessionsPage /> },
           { path: 'training/sessions/:sessionId', element: <TrainingSessionDetailPage /> },

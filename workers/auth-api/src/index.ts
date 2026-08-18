@@ -48,6 +48,24 @@ interface DatabaseRosterMember {
   member_qualifications: Array<{ qualification_key: string }>;
 }
 
+interface DatabaseCadetMember {
+  id: string;
+  display_name: string;
+  callsign: string | null;
+  employee_number: string | null;
+  joined_at: string | null;
+  ranks: { name: string } | Array<{ name: string }> | null;
+  cadet_records: Array<{
+    start_date: string | null;
+    deadline: string | null;
+    stage: string;
+    day_one_complete: boolean;
+    day_one_session_id: string | null;
+    day_two_session_id: string | null;
+    next_step: string | null;
+  }>;
+}
+
 interface RosterMemberInput {
   name: string;
   callsign: string;
@@ -411,6 +429,53 @@ async function handleDiscordLinkApi(request: Request, env: Env) {
   }
 }
 
+function mapCadet(member: DatabaseCadetMember) {
+  const record = member.cadet_records?.[0];
+  return {
+    id: member.id,
+    memberId: member.id,
+    name: member.display_name,
+    employeeNumber: member.employee_number ?? '',
+    callsign: member.callsign ?? '',
+    startDate: record?.start_date ?? member.joined_at,
+    deadline: record?.deadline ?? null,
+    stage: record?.stage ?? 'Awaiting Day 1',
+    dayOneComplete: record?.day_one_complete ?? false,
+    dayOneSessionId: record?.day_one_session_id ?? undefined,
+    dayTwoSessionId: record?.day_two_session_id ?? undefined,
+    nextStep: record?.next_step ?? 'Training progress has not been set.',
+  };
+}
+
+async function readCadets(env: Env, memberId?: string) {
+  const memberFilter = memberId ? `&id=eq.${encodeURIComponent(memberId)}` : '';
+  const response = await supabase(
+    env,
+    `members?select=id,display_name,callsign,employee_number,joined_at,ranks!inner(name),cadet_records(start_date,deadline,stage,day_one_complete,day_one_session_id,day_two_session_id,next_step)&archived_at=is.null&status=eq.active&ranks.name=eq.Cadet${memberFilter}&order=callsign.asc`,
+  );
+  if (!response.ok) throw new Error(`Supabase cadet lookup failed: ${response.status}`);
+  return (await response.json() as DatabaseCadetMember[]).map(mapCadet);
+}
+
+async function handleCadetsApi(request: Request, env: Env, memberId?: string) {
+  if (request.method !== 'GET') return apiJson(env, { error: 'Method not allowed' }, 405);
+  const auth = await requirePermission(request, env, 'cadets.read');
+  if ('error' in auth) return auth.error;
+
+  try {
+    const cadets = await readCadets(env, memberId);
+    if (memberId && !cadets[0]) return apiJson(env, { error: 'Cadet not found' }, 404);
+    return apiJson(env, memberId ? { cadet: cadets[0] } : { cadets });
+  } catch (error) {
+    console.error(JSON.stringify({
+      message: 'Cadet API request failed',
+      memberId: memberId ?? null,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return apiJson(env, { error: 'Unable to load cadet records' }, 500);
+  }
+}
+
 async function handleDiscordStart(request: Request, env: Env) {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get('returnTo') || `${env.FRONTEND_ORIGIN}${env.FRONTEND_PATH}#/`;
@@ -517,6 +582,8 @@ export default {
     }
     const rosterMatch = url.pathname.match(/^\/api\/roster(?:\/([^/]+))?$/);
     if (rosterMatch) return handleRosterApi(request, env, rosterMatch[1] ? decodeURIComponent(rosterMatch[1]) : undefined);
+    const cadetsMatch = url.pathname.match(/^\/api\/cadets(?:\/([^/]+))?$/);
+    if (cadetsMatch) return handleCadetsApi(request, env, cadetsMatch[1] ? decodeURIComponent(cadetsMatch[1]) : undefined);
     if (url.pathname === '/api/discord-links') return handleDiscordLinkApi(request, env);
     return Response.json({ error: 'Not found' }, { status: 404, headers: { ...jsonHeaders, ...corsHeaders(env) } });
   },
