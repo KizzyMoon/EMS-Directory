@@ -5,10 +5,15 @@ import {
   Clock3,
   Megaphone,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { hasPermission } from '../auth/permissions';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
-import { mockCadets } from '../data/mockCadets';
+import { getCadets } from '../lib/cadetsApi';
+import { cadetStageTone, daysRemaining } from '../modules/cadets/utils';
+import type { CadetRecord } from '../modules/cadets/types';
 
 const sessions = [
   { title: 'Day 1 Training', date: '8 August', time: '19:00', note: '1 FTO space available', tone: 'amber' as const },
@@ -17,35 +22,38 @@ const sessions = [
 
 const urgentActions = [
   {
-    title: 'Submit ride-along feedback for Alex Morgan',
-    detail: 'Due today - logged 55m session with Kizzy Moon',
-    tone: 'red',
-    action: 'Submit',
-  },
-  {
     title: 'Day 1 Training is short one FTO',
     detail: 'Tonight, 19:00 - 2 of 3 FTO slots filled',
     tone: 'amber',
     action: 'Claim slot',
   },
-  {
-    title: 'Taylor Reed is 6 days from deadline',
-    detail: 'M7-203 - Day 2 booked, no ride along logged yet',
-    tone: 'red',
-    action: 'View cadet',
-  },
 ];
 
-function daysUntil(deadline: string) {
-  const today = new Date();
-  const due = new Date(deadline);
-  return Math.max(0, Math.ceil((due.getTime() - today.getTime()) / 86_400_000));
-}
-
 export function DashboardPage() {
-  const awaitingDayOne = mockCadets.filter((cadet) => cadet.stage === 'Awaiting Day 1');
-  const awaitingDayTwo = mockCadets.filter((cadet) => cadet.stage === 'Day 2 Booked');
-  const rideAlongReady = mockCadets.filter((cadet) => cadet.stage === 'Available for Ride Alongs');
+  const { user } = useAuth();
+  const canReadCadets = hasPermission(user, 'cadets.read');
+  const [cadets, setCadets] = useState<CadetRecord[]>([]);
+  const [cadetsLoading, setCadetsLoading] = useState(canReadCadets);
+
+  const loadCadets = useCallback(async () => {
+    if (!canReadCadets) return;
+    setCadetsLoading(true);
+    try {
+      setCadets(await getCadets());
+    } catch {
+      setCadets([]);
+    } finally {
+      setCadetsLoading(false);
+    }
+  }, [canReadCadets]);
+
+  useEffect(() => {
+    void loadCadets();
+  }, [loadCadets]);
+
+  const awaitingDayOne = cadets.filter((cadet) => cadet.stage === 'Awaiting Day 1');
+  const awaitingDayTwo = cadets.filter((cadet) => cadet.stage === 'Day 2 Booked');
+  const rideAlongReady = cadets.filter((cadet) => cadet.stage === 'Available for Ride Alongs');
 
   return (
     <>
@@ -56,16 +64,16 @@ export function DashboardPage() {
 
       <section className="action-strip" aria-label="Department overview">
         <div className="action-stat">
-          <div><strong>{mockCadets.length}</strong><span>Active cadets</span></div>
+          <div><strong>{canReadCadets ? cadets.length : '—'}</strong><span>Active cadets</span></div>
         </div>
         <div className="action-stat">
-          <div><strong>{rideAlongReady.length}</strong><span>Ride-along ready</span></div>
+          <div><strong>{canReadCadets ? rideAlongReady.length : '—'}</strong><span>Ride-along ready</span></div>
         </div>
         <div className="action-stat">
-          <div><strong>{awaitingDayOne.length}</strong><span>Awaiting Day 1</span></div>
+          <div><strong>{canReadCadets ? awaitingDayOne.length : '—'}</strong><span>Awaiting Day 1</span></div>
         </div>
         <div className="action-stat">
-          <div><strong>{awaitingDayTwo.length}</strong><span>Awaiting Day 2</span></div>
+          <div><strong>{canReadCadets ? awaitingDayTwo.length : '—'}</strong><span>Awaiting Day 2</span></div>
         </div>
         <div className="action-stat">
           <div><strong>2</strong><span>Upcoming sessions</span></div>
@@ -145,14 +153,20 @@ export function DashboardPage() {
             <Link className="text-link inline-link" to="/cadets">View all <ArrowRight size={15} /></Link>
           </div>
           <div className="cadet-queue">
-            {mockCadets.map((cadet) => (
-              <Link className="cadet-row cadet-row-no-avatar" to={`/cadets/${cadet.id}`} key={cadet.id}>
-                <div className="cadet-main"><strong>{cadet.name}</strong><span>{cadet.employeeNumber}</span></div>
-                <div className="cadet-meta"><Clock3 size={14} /><span>{daysUntil(cadet.deadline)} days remaining</span></div>
-                <StatusBadge tone={cadet.stage === 'Awaiting Day 1' ? 'amber' : cadet.stage === 'Day 2 Booked' ? 'blue' : 'pink'}>{cadet.stage}</StatusBadge>
-                <ArrowRight size={16} className="row-arrow" />
-              </Link>
-            ))}
+            {cadets.map((cadet) => {
+              const remaining = daysRemaining(cadet.deadline);
+              return (
+                <Link className="cadet-row cadet-row-no-avatar" to={`/cadets/${cadet.id}`} key={cadet.id}>
+                  <div className="cadet-main"><strong>{cadet.name}</strong><span>{cadet.employeeNumber}</span></div>
+                  <div className="cadet-meta"><Clock3 size={14} /><span>{remaining === null ? 'Deadline not set' : `${remaining} days remaining`}</span></div>
+                  <StatusBadge tone={cadetStageTone(cadet.stage)}>{cadet.stage}</StatusBadge>
+                  <ArrowRight size={16} className="row-arrow" />
+                </Link>
+              );
+            })}
+            {cadetsLoading ? <p className="muted-text">Loading cadets…</p> : null}
+            {!cadetsLoading && canReadCadets && !cadets.length ? <p className="muted-text">No cadets require attention.</p> : null}
+            {!canReadCadets ? <p className="muted-text">Cadet information is restricted for your rank.</p> : null}
           </div>
         </section>
 

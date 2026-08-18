@@ -1,12 +1,14 @@
 import type { CadetStage } from './types';
 
-export function daysRemaining(deadline: string) {
+export function daysRemaining(deadline: string | null) {
+  if (!deadline) return null;
   const today = new Date();
   const due = new Date(`${deadline}T12:00:00`);
   return Math.max(0, Math.ceil((due.getTime() - today.getTime()) / 86_400_000));
 }
 
-export function formatCadetDate(date: string) {
+export function formatCadetDate(date: string | null) {
+  if (!date) return 'Not set';
   return new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'short',
