@@ -7,6 +7,11 @@ FRONTEND_ORIGIN = "https://kizzymoon.github.io"
 FRONTEND_PATH = "/EMS-Directory/"
 SUPABASE_URL = "https://your-project.supabase.co"
 DISCORD_CLIENT_ID = "your_discord_client_id"
+GOOGLE_ROSTER_CSV_URL = "https://docs.google.com/spreadsheets/d/your-roster-id/gviz/tq?tqx=out:csv&gid=your-roster-gid"
+GOOGLE_TRAINING_CSV_URL = "https://docs.google.com/spreadsheets/d/your-training-id/gviz/tq?tqx=out:csv&gid=your-training-gid"
+
+[triggers]
+crons = ["*/15 * * * *"]
 
 # Set these with wrangler secrets, not in this file:
 # wrangler secret put DISCORD_CLIENT_SECRET

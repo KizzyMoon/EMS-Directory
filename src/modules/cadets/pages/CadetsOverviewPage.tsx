@@ -12,6 +12,7 @@ import { cadetStageTone, daysRemaining } from '../utils';
 
 const stages: Array<CadetStage | 'All stages'> = [
   'All stages',
+  'Not currently booked',
   'Awaiting Day 1',
   'Day 1 Signed Up',
   'Available for Ride Alongs',
@@ -59,7 +60,7 @@ export function CadetsOverviewPage() {
       <PageHeader
         eyebrow="Cadet management"
         title="Cadets"
-        description="Training progress calculated from sessions, ride alongs and feedback."
+        description="Current cadets from the main roster, combined with live training bookings and EMS records."
       />
       <CadetNav />
 

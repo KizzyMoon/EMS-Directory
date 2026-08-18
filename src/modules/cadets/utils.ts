@@ -17,6 +17,7 @@ export function formatCadetDate(date: string | null) {
 }
 
 export function cadetStageTone(stage: CadetStage) {
+  if (stage === 'Not currently booked') return 'neutral' as const;
   if (stage === 'Awaiting Day 1') return 'amber' as const;
   if (stage === 'Day 1 Signed Up') return 'blue' as const;
   if (stage === 'Available for Ride Alongs') return 'pink' as const;

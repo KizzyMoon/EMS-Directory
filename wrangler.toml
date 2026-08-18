@@ -7,6 +7,11 @@ FRONTEND_ORIGIN = "https://kizzymoon.github.io"
 FRONTEND_PATH = "/EMS-Directory/"
 SUPABASE_URL = "https://gikxajbpqzwnecvayecm.supabase.co"
 DISCORD_CLIENT_ID = "1535999595144814662"
+GOOGLE_ROSTER_CSV_URL = "https://docs.google.com/spreadsheets/d/1b9RV4HZh2Klex6jEq8YarlpzpDMt0F4ohV_GscHbSb8/gviz/tq?tqx=out:csv&gid=647224122"
+GOOGLE_TRAINING_CSV_URL = "https://docs.google.com/spreadsheets/d/1twcPjyyf3tuwq4L12OhmLz6QkF9_u8I5ai5qn9wAisg/gviz/tq?tqx=out:csv&gid=0"
+
+[triggers]
+crons = ["*/15 * * * *"]
 
 # Set these in Cloudflare as secrets:
 # DISCORD_CLIENT_SECRET

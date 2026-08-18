@@ -27,6 +27,7 @@ export function RosterPage() {
   const [query, setQuery] = useState('');
   const [rank, setRank] = useState<(typeof ranks)[number]>('All ranks');
   const [status, setStatus] = useState<(typeof statuses)[number]>('All statuses');
+  const sheetManaged = members.some((member) => member.source === 'Google Sheets');
 
   const filteredMembers = useMemo(() => {
     const normalisedQuery = query.trim().toLowerCase();
@@ -69,11 +70,12 @@ export function RosterPage() {
       <PageHeader
         eyebrow="Personnel"
         title="EMS Roster"
-        description="Shared department roster, account details and qualifications."
+        description="Live department roster from the main Google Sheet, with secure account links from EMS Directory."
         actions={(
           <div className="roster-header-actions">
             <span className="roster-count"><Users size={16} /> {filteredMembers.length} members</span>
-            {canManage ? <button className="primary-button" type="button" onClick={() => setEditorOpen(true)}><Plus size={16} /> Add member</button> : null}
+            {sheetManaged ? <span className="count-chip">Live Google roster</span> : null}
+            {canManage && !loading && members.length > 0 && !sheetManaged ? <button className="primary-button" type="button" onClick={() => setEditorOpen(true)}><Plus size={16} /> Add member</button> : null}
           </div>
         )}
       />

@@ -36,6 +36,7 @@ export interface EmsMember {
   timezone: string;
   status: MemberStatus;
   qualifications: MemberQualifications;
+  source?: 'Google Sheets' | 'Supabase';
 }
 
 export type RosterMemberInput = Omit<EmsMember, 'id' | 'discordName' | 'discordUserId'>;
