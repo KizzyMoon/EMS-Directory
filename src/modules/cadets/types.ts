@@ -1,4 +1,5 @@
 export type CadetStage =
+  | 'Not currently booked'
   | 'Awaiting Day 1'
   | 'Day 1 Signed Up'
   | 'Available for Ride Alongs'
@@ -18,4 +19,5 @@ export interface CadetRecord {
   dayOneSessionId?: string;
   dayTwoSessionId?: string;
   nextStep: string;
+  source?: 'Google Sheets' | 'Supabase';
 }

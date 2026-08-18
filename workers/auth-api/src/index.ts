@@ -1,3 +1,5 @@
+import { readGoogleRoster, readGoogleTrainingBookings, type GoogleRosterMember } from './googleSheets';
+
 interface Env {
   FRONTEND_ORIGIN: string;
   FRONTEND_PATH: string;
@@ -6,6 +8,8 @@ interface Env {
   DISCORD_CLIENT_ID: string;
   DISCORD_CLIENT_SECRET: string;
   SESSION_SECRET: string;
+  GOOGLE_ROSTER_CSV_URL?: string;
+  GOOGLE_TRAINING_CSV_URL?: string;
 }
 
 interface DiscordUser {
@@ -414,25 +418,125 @@ function mapRosterMember(member: DatabaseRosterMember) {
       met: qualificationKeys.has('met'),
       doctor: qualificationKeys.has('doctor'),
     },
+    source: 'Supabase' as const,
   };
 }
 
-const rosterSelect = 'id,display_name,callsign,employee_number,steam_name,timezone,status,ranks(name),discord_accounts(discord_user_id,username,display_name),member_qualifications(qualification_key)';
+const rosterSelect = 'id,display_name,callsign,employee_number,steam_name,timezone,status,ranks(name),discord_accounts!discord_accounts_member_id_fkey(discord_user_id,username,display_name),member_qualifications(qualification_key)';
 
-async function readRoster(env: Env, memberId?: string) {
-  const filter = memberId ? `&id=eq.${encodeURIComponent(memberId)}` : '';
+async function readDatabaseRosterMembers(env: Env) {
   const response = await supabase(
     env,
-    `members?select=${rosterSelect}&archived_at=is.null${filter}&order=callsign.asc`,
+    `members?select=${rosterSelect}&archived_at=is.null&order=callsign.asc`,
   );
   if (!response.ok) throw new Error(`Supabase roster lookup failed: ${response.status}`);
-  return (await response.json() as DatabaseRosterMember[]).map(mapRosterMember);
+  return await response.json() as DatabaseRosterMember[];
+}
+
+function mapGoogleRosterMember(member: GoogleRosterMember, databaseMember?: DatabaseRosterMember) {
+  const account = databaseMember?.discord_accounts?.[0];
+  return {
+    id: databaseMember?.id ?? `sheet-${member.employeeNumber}`,
+    rank: member.rank,
+    callsign: member.callsign,
+    name: member.name,
+    employeeNumber: member.employeeNumber,
+    steamName: member.steamName,
+    discordName: member.discordName || account?.display_name || account?.username || 'Not linked',
+    discordUserId: account?.discord_user_id ?? null,
+    timezone: member.timezone || 'Unknown',
+    status: databaseMember ? frontendStatus(databaseMember.status) : 'Active' as const,
+    qualifications: member.qualifications,
+    source: 'Google Sheets' as const,
+  };
+}
+
+async function readRoster(env: Env, memberId?: string) {
+  const databaseMembers = await readDatabaseRosterMembers(env);
+  let members: Array<ReturnType<typeof mapRosterMember> | ReturnType<typeof mapGoogleRosterMember>> = databaseMembers.map(mapRosterMember);
+  if (env.GOOGLE_ROSTER_CSV_URL) {
+    try {
+      const sheetMembers = await readGoogleRoster(env.GOOGLE_ROSTER_CSV_URL);
+      members = sheetMembers.map((sheetMember) => {
+        const databaseMember = databaseMembers.find((candidate) =>
+          candidate.employee_number === sheetMember.employeeNumber
+          || candidate.callsign?.toLowerCase() === sheetMember.callsign.toLowerCase(),
+        );
+        return mapGoogleRosterMember(sheetMember, databaseMember);
+      });
+    } catch (error) {
+      console.error(JSON.stringify({
+        message: 'Google roster fallback failed; using Supabase roster',
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+  return memberId ? members.filter((member) => member.id === memberId) : members;
+}
+
+async function syncGoogleRoster(env: Env) {
+  if (!env.GOOGLE_ROSTER_CSV_URL) return { checked: 0, updated: 0 };
+  const [sheetMembers, databaseMembers] = await Promise.all([
+    readGoogleRoster(env.GOOGLE_ROSTER_CSV_URL, true),
+    readDatabaseRosterMembers(env),
+  ]);
+  const pending = sheetMembers.flatMap((sheetMember) => {
+    const databaseMember = databaseMembers.find((candidate) =>
+      candidate.employee_number === sheetMember.employeeNumber
+      || candidate.callsign?.toLowerCase() === sheetMember.callsign.toLowerCase(),
+    );
+    const mapped = databaseMember ? mapRosterMember(databaseMember) : null;
+    const qualificationKeys = (Object.entries(sheetMember.qualifications) as Array<[QualificationKey, boolean]>)
+      .filter(([, selected]) => selected)
+      .map(([key]) => key);
+    const needsUpdate = !mapped
+      || mapped.name !== sheetMember.name
+      || mapped.callsign !== sheetMember.callsign
+      || mapped.employeeNumber !== sheetMember.employeeNumber
+      || mapped.rank !== sheetMember.rank
+      || mapped.steamName !== sheetMember.steamName
+      || mapped.timezone !== sheetMember.timezone
+      || (Object.keys(sheetMember.qualifications) as QualificationKey[])
+        .some((key) => mapped.qualifications[key] !== sheetMember.qualifications[key]);
+    return needsUpdate ? [{ sheetMember, databaseMember, qualificationKeys }] : [];
+  });
+
+  for (let offset = 0; offset < pending.length; offset += 5) {
+    await Promise.all(pending.slice(offset, offset + 5).map(async ({ sheetMember, databaseMember, qualificationKeys }) => {
+      const response = await supabase(env, 'rpc/upsert_roster_member', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_member_id: databaseMember?.id ?? null,
+          p_actor_member_id: null,
+          p_display_name: sheetMember.name,
+          p_callsign: sheetMember.callsign,
+          p_employee_number: sheetMember.employeeNumber,
+          p_rank_name: sheetMember.rank,
+          p_steam_name: sheetMember.steamName,
+          p_timezone: sheetMember.timezone || 'Unknown',
+          p_status: databaseMember?.status === 'loa' || databaseMember?.status === 'inactive'
+            ? databaseMember.status
+            : 'active',
+          p_qualification_keys: qualificationKeys,
+        }),
+      });
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`Google roster sync failed for ${sheetMember.employeeNumber}: ${response.status} ${detail}`);
+      }
+    }));
+  }
+  return { checked: sheetMembers.length, updated: pending.length };
 }
 
 async function handleRosterApi(request: Request, env: Env, memberId?: string) {
   const permission = request.method === 'GET' ? 'roster.read' : 'roster.manage';
   const auth = await requirePermission(request, env, permission);
   if ('error' in auth) return auth.error;
+
+  if (request.method !== 'GET' && env.GOOGLE_ROSTER_CSV_URL) {
+    return apiJson(env, { error: 'The roster is managed in the main Google Sheet during migration' }, 409);
+  }
 
   try {
     if (request.method === 'GET') {
@@ -560,17 +664,76 @@ function mapCadet(member: DatabaseCadetMember) {
     dayOneSessionId: record?.day_one_session_id ?? undefined,
     dayTwoSessionId: record?.day_two_session_id ?? undefined,
     nextStep: record?.next_step ?? 'Training progress has not been set.',
+    source: 'Supabase' as const,
   };
 }
 
-async function readCadets(env: Env, memberId?: string) {
-  const memberFilter = memberId ? `&id=eq.${encodeURIComponent(memberId)}` : '';
+async function readDatabaseCadetMembers(env: Env) {
   const response = await supabase(
     env,
-    `members?select=id,display_name,callsign,employee_number,joined_at,ranks!inner(name),cadet_records(start_date,deadline,stage,day_one_complete,day_one_session_id,day_two_session_id,next_step)&archived_at=is.null&status=eq.active&ranks.name=eq.Cadet${memberFilter}&order=callsign.asc`,
+    'members?select=id,display_name,callsign,employee_number,joined_at,ranks!inner(name),cadet_records(start_date,deadline,stage,day_one_complete,day_one_session_id,day_two_session_id,next_step)&archived_at=is.null&status=eq.active&ranks.name=eq.Cadet&order=callsign.asc',
   );
   if (!response.ok) throw new Error(`Supabase cadet lookup failed: ${response.status}`);
-  return (await response.json() as DatabaseCadetMember[]).map(mapCadet);
+  return await response.json() as DatabaseCadetMember[];
+}
+
+async function readCadets(env: Env, memberId?: string) {
+  if (!env.GOOGLE_ROSTER_CSV_URL) {
+    const cadets = (await readDatabaseCadetMembers(env)).map(mapCadet);
+    return memberId ? cadets.filter((cadet) => cadet.memberId === memberId) : cadets;
+  }
+
+  const [roster, databaseCadets] = await Promise.all([
+    readRoster(env),
+    readDatabaseCadetMembers(env),
+  ]);
+  let dayOneBookings = new Set<string>();
+  let dayTwoBookings = new Set<string>();
+  if (env.GOOGLE_TRAINING_CSV_URL) {
+    try {
+      const bookings = await readGoogleTrainingBookings(env.GOOGLE_TRAINING_CSV_URL);
+      dayOneBookings = bookings.dayOne;
+      dayTwoBookings = bookings.dayTwo;
+    } catch (error) {
+      console.error(JSON.stringify({
+        message: 'Google training booking lookup failed',
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  const cadets = roster.filter((member) => member.rank === 'Cadet').map((member) => {
+    const databaseCadet = databaseCadets.find((candidate) =>
+      candidate.id === member.id || candidate.employee_number === member.employeeNumber,
+    );
+    const record = databaseCadet?.cadet_records?.[0];
+    const bookingStage = dayTwoBookings.has(member.employeeNumber)
+      ? 'Day 2 Booked'
+      : dayOneBookings.has(member.employeeNumber)
+        ? 'Day 1 Signed Up'
+        : 'Not currently booked';
+    return {
+      id: member.id,
+      memberId: member.id,
+      name: member.name,
+      employeeNumber: member.employeeNumber,
+      callsign: member.callsign,
+      startDate: record?.start_date ?? null,
+      deadline: record?.deadline ?? null,
+      stage: record?.stage ?? bookingStage,
+      dayOneComplete: record?.day_one_complete ?? false,
+      dayOneSessionId: record?.day_one_session_id ?? undefined,
+      dayTwoSessionId: record?.day_two_session_id ?? undefined,
+      nextStep: record?.next_step
+        ?? (bookingStage === 'Day 2 Booked'
+          ? 'Booked on the current Day 2 training sheet.'
+          : bookingStage === 'Day 1 Signed Up'
+            ? 'Booked on the current Day 1 training sheet.'
+            : 'No current Day 1 or Day 2 booking is listed.'),
+      source: 'Google Sheets' as const,
+    };
+  });
+  return memberId ? cadets.filter((cadet) => cadet.memberId === memberId) : cadets;
 }
 
 async function handleCadetsApi(request: Request, env: Env, memberId?: string) {
@@ -1232,5 +1395,10 @@ export default {
     if (rideAlongMatch) return handleRideAlongsApi(request, env, rideAlongMatch[1] ? decodeURIComponent(rideAlongMatch[1]) : undefined);
     if (url.pathname === '/api/discord-links') return handleDiscordLinkApi(request, env);
     return Response.json({ error: 'Not found' }, { status: 404, headers: { ...jsonHeaders, ...corsHeaders(env) } });
+  },
+  async scheduled(_controller: ScheduledController, env: Env, context: ExecutionContext) {
+    context.waitUntil(syncGoogleRoster(env).then((result) => {
+      console.log(JSON.stringify({ message: 'Google roster sync completed', ...result }));
+    }));
   },
 };

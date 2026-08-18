@@ -64,7 +64,7 @@ export function MemberProfilePage() {
     <>
       <div className="member-page-toolbar member-page-actions">
         <Link className="secondary-button inline-button" to="/roster"><ArrowLeft size={16} /> Back to roster</Link>
-        {canManage ? <button className="primary-button inline-button" type="button" onClick={() => setEditorOpen(true)}><Pencil size={16} /> Edit member</button> : null}
+        {canManage && member.source !== 'Google Sheets' ? <button className="primary-button inline-button" type="button" onClick={() => setEditorOpen(true)}><Pencil size={16} /> Edit member</button> : null}
       </div>
 
       <section className="glass-card member-command-header">
