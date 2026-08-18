@@ -226,6 +226,7 @@ h2 { font-family: var(--display-font); font-size: 21px; line-height: 1; margin-b
 .amber-note { color: var(--amber); background: var(--amber-soft); border-color: rgba(251,191,36,.24); }
 .red-note { color: var(--red); background: var(--red-soft); border-color: rgba(239,91,111,.24); }
 .blue-note { color: var(--blue); background: var(--blue-soft); border-color: rgba(102,168,255,.24); }
+.green-note { color: var(--green); background: var(--green-soft); border-color: rgba(61,220,151,.24); }
 .form-card { max-width: 880px; display: grid; gap: 16px; }
 .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
 .form-grid label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }

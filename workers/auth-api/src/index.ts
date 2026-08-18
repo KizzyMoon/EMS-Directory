@@ -59,6 +59,12 @@ interface RosterMemberInput {
   qualifications: Record<QualificationKey, boolean>;
 }
 
+interface DiscordLinkInput {
+  memberId: string;
+  discordUserId: string;
+  note: string;
+}
+
 const jsonHeaders = {
   'content-type': 'application/json; charset=utf-8',
 };
@@ -229,6 +235,20 @@ async function readRosterInput(request: Request): Promise<RosterMemberInput> {
   };
 }
 
+async function readDiscordLinkInput(request: Request): Promise<DiscordLinkInput> {
+  const body: unknown = await request.json();
+  if (!isRecord(body)) throw new Error('Invalid Discord link data');
+  const discordUserId = requiredString(body.discordUserId, 'Discord user ID');
+  if (!/^[0-9]{16,25}$/.test(discordUserId)) {
+    throw new Error('Discord user ID must contain 16 to 25 digits');
+  }
+  return {
+    memberId: requiredString(body.memberId, 'Member'),
+    discordUserId,
+    note: typeof body.note === 'string' ? body.note.trim() : '',
+  };
+}
+
 function databaseStatus(status: RosterMemberInput['status']): DatabaseRosterStatus {
   if (status === 'LOA') return 'loa';
   return status === 'Active' ? 'active' : 'inactive';
@@ -345,6 +365,52 @@ async function handleRosterApi(request: Request, env: Env, memberId?: string) {
   }
 }
 
+async function handleDiscordLinkApi(request: Request, env: Env) {
+  const auth = await requirePermission(request, env, 'discord_ids.manage');
+  if ('error' in auth) return auth.error;
+
+  try {
+    if (request.method === 'GET') {
+      return apiJson(env, { members: await readRoster(env) });
+    }
+
+    if (request.method === 'POST') {
+      const input = await readDiscordLinkInput(request);
+      const rpcResponse = await supabase(env, 'rpc/link_discord_account', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_member_id: input.memberId,
+          p_actor_member_id: auth.member.id,
+          p_discord_user_id: input.discordUserId,
+          p_verification_note: input.note,
+        }),
+      });
+      if (!rpcResponse.ok) {
+        const details = await rpcResponse.json().catch(() => null) as { message?: string } | null;
+        const message = details?.message?.includes('already linked') || details?.message?.includes('duplicate key')
+          ? 'That Discord user ID is already linked to another member'
+          : details?.message ?? 'Unable to save the Discord link';
+        return apiJson(env, { error: message }, 400);
+      }
+      const [member] = await readRoster(env, input.memberId);
+      if (!member) return apiJson(env, { error: 'Roster member not found' }, 404);
+      return apiJson(env, { member });
+    }
+
+    return apiJson(env, { error: 'Method not allowed' }, 405);
+  } catch (error) {
+    console.error(JSON.stringify({
+      message: 'Discord linking API request failed',
+      method: request.method,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    const message = error instanceof Error && !error.message.startsWith('Supabase')
+      ? error.message
+      : 'Unable to complete the Discord linking request';
+    return apiJson(env, { error: message }, 500);
+  }
+}
+
 async function handleDiscordStart(request: Request, env: Env) {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get('returnTo') || `${env.FRONTEND_ORIGIN}${env.FRONTEND_PATH}#/`;
@@ -451,6 +517,7 @@ export default {
     }
     const rosterMatch = url.pathname.match(/^\/api\/roster(?:\/([^/]+))?$/);
     if (rosterMatch) return handleRosterApi(request, env, rosterMatch[1] ? decodeURIComponent(rosterMatch[1]) : undefined);
+    if (url.pathname === '/api/discord-links') return handleDiscordLinkApi(request, env);
     return Response.json({ error: 'Not found' }, { status: 404, headers: { ...jsonHeaders, ...corsHeaders(env) } });
   },
 };
