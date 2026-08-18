@@ -1407,16 +1407,19 @@ async function handleSession(request: Request, env: Env) {
 }
 
 async function handleHealth(env: Env) {
-  const [roster, training] = await Promise.allSettled([
+  const [roster, training, bookings] = await Promise.allSettled([
     env.GOOGLE_ROSTER_CSV_URL ? readGoogleRoster(env.GOOGLE_ROSTER_CSV_URL) : Promise.reject(new Error('Roster source is not configured')),
     env.GOOGLE_TRAINING_CSV_URL ? readGoogleTrainingSessions(env.GOOGLE_TRAINING_CSV_URL) : Promise.reject(new Error('Training source is not configured')),
+    env.GOOGLE_TRAINING_CSV_URL ? readGoogleTrainingBookings(env.GOOGLE_TRAINING_CSV_URL) : Promise.reject(new Error('Training booking source is not configured')),
   ]);
-  const healthy = roster.status === 'fulfilled' && training.status === 'fulfilled';
+  const cadetsHealthy = roster.status === 'fulfilled' && bookings.status === 'fulfilled';
+  const healthy = roster.status === 'fulfilled' && training.status === 'fulfilled' && cadetsHealthy;
   return apiJson(env, {
     ok: healthy,
-    version: 'google-sources-v3',
+    version: 'google-sources-v4',
     sources: {
       roster: { ok: roster.status === 'fulfilled', count: roster.status === 'fulfilled' ? roster.value.length : 0 },
+      cadets: { ok: cadetsHealthy, count: roster.status === 'fulfilled' ? roster.value.filter((member) => member.rank === 'Cadet').length : 0 },
       training: { ok: training.status === 'fulfilled', count: training.status === 'fulfilled' ? training.value.length : 0 },
     },
   }, healthy ? 200 : 503);
