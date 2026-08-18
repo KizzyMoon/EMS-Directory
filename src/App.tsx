@@ -4,13 +4,13 @@ import { RequirePermission } from './auth/RequirePermission';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppLayout } from './layouts/AppLayout';
 import { AccessDeniedPage } from './pages/AccessDeniedPage';
+import { AdministrationPage } from './pages/AdministrationPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DiscordLinkingPage } from './pages/DiscordLinkingPage';
 import { GoogleResourcesPage } from './pages/GoogleResourcesPage';
 import { LoginPage } from './pages/LoginPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
 import { MyProfilePage } from './pages/MyProfilePage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
 import { QuickReferencePage } from './pages/QuickReferencePage';
 import { RosterPage } from './pages/RosterPage';
 import {
@@ -88,8 +88,14 @@ const router = createHashRouter([
           },
           { path: 'quick-reference', element: <QuickReferencePage /> },
           { path: 'profile', element: <MyProfilePage /> },
-          { path: 'administration', element: <PlaceholderPage title="Administration" description="Members, permissions, imports, audit logs and settings." /> },
-          { path: 'administration/discord-linking', element: <DiscordLinkingPage /> },
+          {
+            element: <RequirePermission permissions={['admin.read']} />,
+            children: [{ path: 'administration', element: <AdministrationPage /> }],
+          },
+          {
+            element: <RequirePermission permissions={['discord_ids.manage']} />,
+            children: [{ path: 'administration/discord-linking', element: <DiscordLinkingPage /> }],
+          },
         ],
       },
     ],
