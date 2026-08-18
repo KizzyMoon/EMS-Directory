@@ -24,6 +24,11 @@ on conflict (key) do update set label = excluded.label;
 alter table public.qualifications enable row level security;
 alter table public.member_qualifications enable row level security;
 
+revoke all on table public.qualifications from public, anon, authenticated;
+revoke all on table public.member_qualifications from public, anon, authenticated;
+grant select on table public.qualifications to service_role;
+grant select on table public.member_qualifications to service_role;
+
 create or replace function public.upsert_roster_member(
   p_member_id uuid,
   p_actor_member_id uuid,

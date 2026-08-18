@@ -1,4 +1,4 @@
-name = "ems-directory-auth"
+name = "ems-directory"
 main = "workers/auth-api/src/index.ts"
 compatibility_date = "2026-08-08"
 
