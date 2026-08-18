@@ -39,3 +39,24 @@ export interface RideAlong {
   callsAttended: string[];
   createdAt: string;
 }
+
+export interface AvailableRideAlongCadet {
+  id: string;
+  name: string;
+  employeeNumber: string;
+  callsign: string;
+  daysRemaining: number | null;
+  rideAlongs: number;
+  currentFocus: string;
+}
+
+export type RideAlongFeedbackInput = Pick<
+  RideAlongFeedback,
+  | 'strengths'
+  | 'areasToImprove'
+  | 'currentFocus'
+  | 'generalFeedback'
+  | 'concerns'
+  | 'internalNotes'
+  | 'recommendedNextStep'
+>;

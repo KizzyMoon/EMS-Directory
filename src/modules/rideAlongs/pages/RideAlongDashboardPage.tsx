@@ -1,15 +1,20 @@
-import { AlertTriangle, ArrowRight, Clock3, FilePenLine, Play, Plus, Users } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Clock3, FilePenLine, Play, Plus, RefreshCw, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../../auth/AuthContext';
+import { hasPermission } from '../../../auth/permissions';
 import { PageHeader } from '../../../components/PageHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { RideAlongNav } from '../components/RideAlongNav';
-import { availableCadets, mockRideAlongs } from '../data/mockRideAlongs';
+import { useRideAlongs } from '../hooks/useRideAlongs';
 import { feedbackTone, formatDuration, formatRideAlongDate, rideAlongTone } from '../utils';
 
 export function RideAlongDashboardPage() {
-  const active = mockRideAlongs.filter((rideAlong) => rideAlong.status === 'In Progress');
-  const drafts = mockRideAlongs.flatMap((rideAlong) => rideAlong.feedback.filter((feedback) => feedback.status === 'Draft'));
-  const recent = mockRideAlongs.filter((rideAlong) => rideAlong.status === 'Completed').slice(0, 4);
+  const { user } = useAuth();
+  const canManage = hasPermission(user, 'training.manage');
+  const { rideAlongs, availableCadets, loading, error, reload } = useRideAlongs();
+  const active = rideAlongs.filter((rideAlong) => rideAlong.status === 'In Progress');
+  const drafts = rideAlongs.flatMap((rideAlong) => rideAlong.feedback.filter((feedback) => feedback.status === 'Draft').map((feedback) => ({ feedback, rideAlongId: rideAlong.id })));
+  const recent = rideAlongs.filter((rideAlong) => rideAlong.status === 'Completed').slice(0, 4);
 
   return (
     <>
@@ -17,15 +22,17 @@ export function RideAlongDashboardPage() {
         eyebrow="Training module"
         title="Ride Alongs"
         description="Take out any available cadet, track the session and submit individual feedback."
-        actions={<Link className="primary-button" to="/ride-alongs/start"><Plus size={16} /> Start ride along</Link>}
+        actions={canManage ? <Link className="primary-button" to="/ride-alongs/start"><Plus size={16} /> Start ride along</Link> : null}
       />
       <RideAlongNav />
+
+      {error ? <div className="status-note red-note"><span>{error}</span><button className="secondary-button compact-button" type="button" onClick={() => void reload()}><RefreshCw size={15} /> Try again</button></div> : null}
 
       <section className="ride-summary">
         <div><Users size={18} /><strong>{availableCadets.length}</strong><span>Available cadets</span></div>
         <div><Play size={18} /><strong>{active.length}</strong><span>In progress</span></div>
         <div><FilePenLine size={18} /><strong>{drafts.length}</strong><span>Draft feedback</span></div>
-        <div><AlertTriangle size={18} /><strong>{availableCadets.filter((cadet) => cadet.daysRemaining <= 10).length}</strong><span>Near deadline</span></div>
+        <div><AlertTriangle size={18} /><strong>{availableCadets.filter((cadet) => cadet.daysRemaining !== null && cadet.daysRemaining <= 10).length}</strong><span>Near deadline</span></div>
       </section>
 
       <div className="ride-dashboard-grid">
@@ -41,8 +48,8 @@ export function RideAlongDashboardPage() {
                 <div><strong>{cadet.name}</strong><span>{cadet.employeeNumber}</span></div>
                 <div><span>Current focus</span><strong>{cadet.currentFocus}</strong></div>
                 <div><span>Ride alongs</span><strong>{cadet.rideAlongs}</strong></div>
-                <div className={cadet.daysRemaining <= 10 ? 'deadline-warning' : ''}><Clock3 size={14} /><span>{cadet.daysRemaining} days</span></div>
-                <Link className="secondary-button compact-button" to={`/ride-alongs/start?cadet=${cadet.id}`}>Select</Link>
+                <div className={cadet.daysRemaining !== null && cadet.daysRemaining <= 10 ? 'deadline-warning' : ''}><Clock3 size={14} /><span>{cadet.daysRemaining === null ? 'No deadline' : `${cadet.daysRemaining} days`}</span></div>
+                {canManage ? <Link className="secondary-button compact-button" to={`/ride-alongs/start?cadet=${cadet.id}`}>Select</Link> : null}
               </article>
             ))}
           </div>
@@ -64,9 +71,9 @@ export function RideAlongDashboardPage() {
         <section className="glass-card">
           <div className="panel-header"><div><p className="eyebrow">Your queue</p><h2>Feedback drafts</h2></div></div>
           <div className="feedback-draft-list">
-            {drafts.map((feedback) => (
-              <Link to={`/ride-alongs/${mockRideAlongs.find((item) => item.feedback.some((entry) => entry.id === feedback.id))?.id}`} key={feedback.id}>
-                <div><strong>{feedback.cadetName}</strong><span>{feedback.currentFocus}</span></div>
+            {drafts.map(({ feedback, rideAlongId }) => (
+              <Link to={`/ride-alongs/${rideAlongId}`} key={feedback.id}>
+                <div><strong>{feedback.cadetName}</strong><span>{feedback.currentFocus || 'Focus not set'}</span></div>
                 <StatusBadge tone={feedbackTone(feedback.status)}>{feedback.status}</StatusBadge>
               </Link>
             ))}
@@ -80,6 +87,7 @@ export function RideAlongDashboardPage() {
             <Link className="inline-link text-link" to="/ride-alongs/history">Full history <ArrowRight size={15} /></Link>
           </div>
           <div className="ride-history-list">
+            {loading ? <p className="muted-text">Loading ride alongs…</p> : null}
             {recent.map((rideAlong) => (
               <Link to={`/ride-alongs/${rideAlong.id}`} key={rideAlong.id}>
                 <div><strong>{rideAlong.cadets.map((cadet) => cadet.name).join(', ')}</strong><span>{formatRideAlongDate(rideAlong.startedAt)}</span></div>
@@ -89,6 +97,7 @@ export function RideAlongDashboardPage() {
                 <ArrowRight size={15} />
               </Link>
             ))}
+            {!loading && !recent.length ? <p className="muted-text">No completed ride alongs yet.</p> : null}
           </div>
         </section>
       </div>

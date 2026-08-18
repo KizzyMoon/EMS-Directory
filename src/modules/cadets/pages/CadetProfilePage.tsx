@@ -1,12 +1,15 @@
 import { ArrowLeft, CalendarClock, Clock3, FileText, LockKeyhole, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../../../auth/AuthContext';
+import { hasAnyPermission } from '../../../auth/permissions';
 import { PageHeader } from '../../../components/PageHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { getCadet } from '../../../lib/cadetsApi';
 import { feedbackTone, formatDuration, formatRideAlongDate } from '../../rideAlongs/utils';
 import { formatTrainingDate, sessionTone } from '../../training/utils';
 import { useTrainingSessions } from '../../training/hooks/useTrainingSessions';
+import { useRideAlongs } from '../../rideAlongs/hooks/useRideAlongs';
 import { CadetNav } from '../components/CadetNav';
 import {
   getCadetFeedback,
@@ -20,10 +23,13 @@ import { cadetStageTone, daysRemaining, formatCadetDate } from '../utils';
 
 export function CadetProfilePage() {
   const { cadetId } = useParams();
+  const { user } = useAuth();
+  const canSeeInternal = hasAnyPermission(user, ['fto_resources.read', 'training.manage']);
   const [cadet, setCadet] = useState<CadetRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const { sessions: allTrainingSessions } = useTrainingSessions();
+  const { rideAlongs: allRideAlongs } = useRideAlongs();
 
   const loadCadet = useCallback(async () => {
     if (!cadetId) return;
@@ -55,9 +61,9 @@ export function CadetProfilePage() {
     return <section className="glass-card empty-state"><h1>Cadet not found</h1><Link to="/cadets">Return to cadets</Link></section>;
   }
 
-  const stats = getCadetStats(cadet);
-  const rideAlongs = getCadetRideAlongs(cadet);
-  const feedback = getCadetFeedback(cadet);
+  const stats = getCadetStats(cadet, allRideAlongs);
+  const rideAlongs = getCadetRideAlongs(cadet, allRideAlongs);
+  const feedback = getCadetFeedback(cadet, allRideAlongs);
   const trainingSessions = getCadetTrainingSessions(cadet, allTrainingSessions);
   const upcoming = getUpcomingCadetSession(cadet, allTrainingSessions);
   const remaining = daysRemaining(cadet.deadline);
@@ -91,7 +97,7 @@ export function CadetProfilePage() {
         <a className="member-tab" href="#training">Training</a>
         <a className="member-tab" href="#ride-alongs">Ride Alongs</a>
         <a className="member-tab" href="#feedback">Feedback</a>
-        <a className="member-tab" href="#internal">Internal Notes</a>
+        {canSeeInternal ? <a className="member-tab" href="#internal">Internal Notes</a> : null}
       </nav>
 
       <div className="cadet-profile-grid">
@@ -151,7 +157,7 @@ export function CadetProfilePage() {
           </div>
         </section>
 
-        <section className="glass-card cadet-wide-panel restricted-card" id="internal">
+        {canSeeInternal ? <section className="glass-card cadet-wide-panel restricted-card" id="internal">
           <div className="panel-header"><div><p className="eyebrow">FTO and above only</p><h2>Internal Information</h2></div><LockKeyhole size={18} /></div>
           <div className="internal-feedback-list">
             {feedback.map((item) => (
@@ -163,7 +169,7 @@ export function CadetProfilePage() {
             ))}
             {!feedback.length ? <p className="muted-text">No internal feedback records.</p> : null}
           </div>
-        </section>
+        </section> : null}
       </div>
     </>
   );
