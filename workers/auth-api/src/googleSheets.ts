@@ -19,6 +19,25 @@ export interface GoogleTrainingBookings {
   dayTwo: Set<string>;
 }
 
+export interface GoogleTrainingAttendee {
+  employeeNumber: string;
+  name: string;
+}
+
+export interface GoogleTrainingSession {
+  id: string;
+  type: 'Day 1' | 'Day 2';
+  title: string;
+  date: string;
+  startTime: string;
+  timezone: string;
+  host: string;
+  cadetCapacity: number;
+  ftoCapacity: number;
+  cadets: GoogleTrainingAttendee[];
+  ftos: GoogleTrainingAttendee[];
+}
+
 interface CacheEntry<T> {
   expiresAt: number;
   value: T;
@@ -26,6 +45,7 @@ interface CacheEntry<T> {
 
 let rosterCache: CacheEntry<GoogleRosterMember[]> | null = null;
 let trainingCache: CacheEntry<GoogleTrainingBookings> | null = null;
+let trainingSessionsCache: CacheEntry<GoogleTrainingSession[]> | null = null;
 
 export function parseCsv(input: string) {
   const rows: string[][] = [];
@@ -152,4 +172,67 @@ export async function readGoogleTrainingBookings(url: string, forceRefresh = fal
   });
   trainingCache = { expiresAt: Date.now() + 60_000, value: bookings };
   return bookings;
+}
+
+function parseSheetDate(value: string) {
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) throw new Error(`Google training date is invalid: ${value}`);
+  const [, month, day, year] = match;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+function parseSheetTime(value: string) {
+  const match = value.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*([A-Z]+)?$/i);
+  if (!match) throw new Error(`Google training time is invalid: ${value}`);
+  const [, rawHour, rawMinute = '00', meridiem, timezone = ''] = match;
+  let hour = Number(rawHour) % 12;
+  if (meridiem.toLowerCase() === 'pm') hour += 12;
+  return { time: `${String(hour).padStart(2, '0')}:${rawMinute}`, timezone: timezone.toUpperCase() };
+}
+
+function attendees(rows: string[][], column: number, start: number, end: number) {
+  return rows.slice(start, end).flatMap((row) => {
+    const employeeNumber = cell(row, column);
+    if (!/^\d+$/.test(employeeNumber)) return [];
+    return [{ employeeNumber, name: cell(row, column + 1) }];
+  });
+}
+
+export async function readGoogleTrainingSessions(url: string, forceRefresh = false) {
+  if (!forceRefresh && trainingSessionsCache && trainingSessionsCache.expiresAt > Date.now()) return trainingSessionsCache.value;
+  const rows = await fetchCsv(url);
+  const inputRow = rows.findIndex((row) => row.some((value) => value.includes('Input Employee # here')));
+  const staffRow = rows.findIndex((row) => row.some((value) => value.includes("Supervisors, FTO's & Helpers Sign up Below")));
+  if (inputRow < 0 || staffRow <= inputRow) throw new Error('Google training session sections were not found');
+
+  const bookingColumns = rows[inputRow]
+    .map((value, index) => value.includes('Input Employee # here') ? index : -1)
+    .filter((index) => index >= 0);
+  const sessions = bookingColumns.map((column) => {
+    const titleCell = rows.slice(0, inputRow)
+      .map((row) => cell(row, column))
+      .find((value) => /(EU|NA)\s+DAY\s+[12]\s*Training/i.test(value));
+    const titleMatch = titleCell?.match(/(EU|NA)\s+DAY\s+([12])\s*Training/i);
+    if (!titleMatch) throw new Error('Google training title is invalid');
+    const region = titleMatch[1].toUpperCase();
+    const day = titleMatch[2];
+    const date = parseSheetDate(cell(rows[1], column + 1));
+    const parsedTime = parseSheetTime(cell(rows[1], column + 2));
+    return {
+      id: `google-${region.toLowerCase()}-day-${day}-${date}`,
+      type: `Day ${day}` as 'Day 1' | 'Day 2',
+      title: `${region} Day ${day} Training`,
+      date,
+      startTime: parsedTime.time,
+      timezone: parsedTime.timezone,
+      host: cell(rows[1], column),
+      cadetCapacity: staffRow - inputRow - 1,
+      ftoCapacity: rows.length - staffRow - 1,
+      cadets: attendees(rows, column, inputRow + 1, staffRow),
+      ftos: attendees(rows, column, staffRow + 1, rows.length),
+    };
+  });
+  if (!sessions.length) throw new Error('Google training sheet returned no sessions');
+  trainingSessionsCache = { expiresAt: Date.now() + 60_000, value: sessions };
+  return sessions;
 }

@@ -1,20 +1,13 @@
-import { AlertTriangle, ArrowRight, CalendarClock, ClipboardCheck, Plus, RefreshCw, Users } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, ArrowRight, CalendarClock, ClipboardCheck, ExternalLink, RefreshCw, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../../auth/AuthContext';
-import { hasPermission } from '../../../auth/permissions';
 import { PageHeader } from '../../../components/PageHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
-import { CreateSessionDrawer } from '../components/CreateSessionDrawer';
 import { TrainingNav } from '../components/TrainingNav';
 import { useTrainingSessions } from '../hooks/useTrainingSessions';
 import { formatTrainingActivityDate, formatTrainingDate, getSessionCounts, sessionTone } from '../utils';
 
 export function TrainingDashboardPage() {
-  const { user } = useAuth();
-  const canManage = hasPermission(user, 'training.manage');
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const { sessions, setSessions, loading, error, reload } = useTrainingSessions();
+  const { sessions, loading, error, reload } = useTrainingSessions();
   const upcoming = sessions.filter((session) => session.status === 'Open' || session.status === 'Full');
   const attendanceRequired = sessions.filter(
     (session) => session.attendance.some((item) => item.status === 'Pending') && session.status === 'Completed',
@@ -26,7 +19,7 @@ export function TrainingDashboardPage() {
         eyebrow="Training module"
         title="Training Management"
         description="Sessions, sign-ups, attendance and training records in one place."
-        actions={canManage ? <button className="primary-button" onClick={() => setDrawerOpen(true)}><Plus size={16} /> New session</button> : null}
+        actions={<a className="primary-button" href="https://docs.google.com/spreadsheets/d/1twcPjyyf3tuwq4L12OhmLz6QkF9_u8I5ai5qn9wAisg/edit" target="_blank" rel="noreferrer"><ExternalLink size={16} /> Open training sheet</a>}
       />
       <TrainingNav />
 
@@ -54,7 +47,7 @@ export function TrainingDashboardPage() {
                 <Link className="training-session-card" to={`/training/sessions/${session.id}`} key={session.id}>
                   <div className="training-date-block">
                     <strong>{formatTrainingDate(session.date)}</strong>
-                    <span>{session.startTime}–{session.endTime}</span>
+                    <span>{session.startTime}{session.endTime ? `–${session.endTime}` : ''} {session.server}</span>
                   </div>
                   <div className="training-session-main">
                     <strong>{session.title}</strong>
@@ -101,8 +94,6 @@ export function TrainingDashboardPage() {
           </div>
         </section>
       </div>
-
-      <CreateSessionDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={(session) => setSessions((current) => [session, ...current])} />
     </>
   );
 }

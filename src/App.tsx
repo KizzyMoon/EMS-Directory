@@ -6,6 +6,7 @@ import { AppLayout } from './layouts/AppLayout';
 import { AccessDeniedPage } from './pages/AccessDeniedPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DiscordLinkingPage } from './pages/DiscordLinkingPage';
+import { GoogleResourcesPage } from './pages/GoogleResourcesPage';
 import { LoginPage } from './pages/LoginPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
@@ -78,10 +79,10 @@ const router = createHashRouter([
           {
             element: <RequirePermission permissions={['fto_resources.read']} />,
             children: [
-              { path: 'training-sheets', element: <PlaceholderPage title="Training Sheets" description="Confidential digital training progress for FTO and above." /> },
-              { path: 'probationer-tests', element: <PlaceholderPage title="Probationer Tests" description="Permission-controlled test records and marking forms." /> },
-              { path: 'knowledge-base', element: <PlaceholderPage title="Knowledge Base" description="FTO-only SOPs, guides, procedures and policies." /> },
-              { path: 'forms', element: <PlaceholderPage title="Forms" description="FTO-only submissions, drafts and approval workflows." /> },
+              { path: 'training-sheets', element: <GoogleResourcesPage section="training" /> },
+              { path: 'probationer-tests', element: <GoogleResourcesPage section="tests" /> },
+              { path: 'knowledge-base', element: <GoogleResourcesPage section="knowledge" /> },
+              { path: 'forms', element: <GoogleResourcesPage section="forms" /> },
             ],
           },
           { path: 'quick-reference', element: <QuickReferencePage /> },
