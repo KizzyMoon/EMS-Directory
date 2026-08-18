@@ -61,6 +61,8 @@ export function TrainingAttendancePage() {
       <PageHeader eyebrow="Training module" title="Attendance" description="Record attendance without editing a spreadsheet." />
       <TrainingNav />
 
+      <div className="status-note blue-note">Attendance remains managed in the main Google Training Attendance Sheet. This page shows the current live booking list as read-only.</div>
+
       {error ? <div className="status-note red-note"><span>{error}</span><button className="secondary-button compact-button" type="button" onClick={() => void reload()}><RefreshCw size={15} /> Try again</button></div> : null}
 
       {eligibleSessions.length ? (
@@ -87,13 +89,13 @@ export function TrainingAttendancePage() {
               <div className="attendance-table attendance-row" key={signup.id}>
                 <div><strong>{signup.memberName}</strong><span className="mono-value">{signup.callsign}</span></div>
                 <span>{signup.role}</span>
-                <select disabled={!canManage} value={attendance[signup.memberId] ?? 'Pending'} onChange={(event) => setAttendance((current) => ({ ...current, [signup.memberId]: event.target.value as AttendanceStatus }))}>
+                <select disabled={!canManage || selectedSession.source === 'Google Sheets'} value={attendance[signup.memberId] ?? 'Pending'} onChange={(event) => setAttendance((current) => ({ ...current, [signup.memberId]: event.target.value as AttendanceStatus }))}>
                   {attendanceOptions.map((option) => <option key={option}>{option}</option>)}
                 </select>
-                <input disabled={!canManage} value={notes[signup.memberId] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [signup.memberId]: event.target.value }))} placeholder="Optional note…" />
+                <input disabled={!canManage || selectedSession.source === 'Google Sheets'} value={notes[signup.memberId] ?? ''} onChange={(event) => setNotes((current) => ({ ...current, [signup.memberId]: event.target.value }))} placeholder="Optional note…" />
               </div>
             ))}
-            {canManage ? <div className="attendance-actions"><button className="primary-button" disabled={saving} type="button" onClick={() => void save()}><CheckCircle2 size={16} /> {saving ? 'Saving…' : 'Save attendance'}</button></div> : null}
+            {canManage && selectedSession.source !== 'Google Sheets' ? <div className="attendance-actions"><button className="primary-button" disabled={saving} type="button" onClick={() => void save()}><CheckCircle2 size={16} /> {saving ? 'Saving…' : 'Save attendance'}</button></div> : null}
           </section>
         </>
       ) : !loading ? <section className="glass-card empty-state"><h1>No attendance to record</h1><p>Sessions will appear here after members sign up.</p></section> : <section className="glass-card empty-state"><RefreshCw className="spin-icon" size={20} /><h1>Loading attendance…</h1></section>}

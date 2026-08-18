@@ -44,6 +44,7 @@ export interface TrainingSession {
   signups: TrainingSignup[];
   attendance: TrainingAttendance[];
   activity: TrainingActivity[];
+  source: 'Google Sheets' | 'EMS Directory';
 }
 
 export interface TrainingSessionInput {

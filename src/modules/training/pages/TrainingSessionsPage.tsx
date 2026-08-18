@@ -1,24 +1,18 @@
-import { ArrowRight, Plus, RefreshCw, Search } from 'lucide-react';
+import { ArrowRight, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../../auth/AuthContext';
-import { hasPermission } from '../../../auth/permissions';
 import { PageHeader } from '../../../components/PageHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
-import { CreateSessionDrawer } from '../components/CreateSessionDrawer';
 import { TrainingNav } from '../components/TrainingNav';
 import { useTrainingSessions } from '../hooks/useTrainingSessions';
 import type { TrainingStatus, TrainingType } from '../types';
 import { formatTrainingDate, getSessionCounts, sessionTone } from '../utils';
 
 export function TrainingSessionsPage() {
-  const { user } = useAuth();
-  const canManage = hasPermission(user, 'training.manage');
   const [query, setQuery] = useState('');
   const [type, setType] = useState<TrainingType | 'All types'>('All types');
   const [status, setStatus] = useState<TrainingStatus | 'All statuses'>('All statuses');
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const { sessions: records, setSessions, loading, error, reload } = useTrainingSessions();
+  const { sessions: records, loading, error, reload } = useTrainingSessions();
 
   const sessions = useMemo(() => records.filter((session) => {
     const text = `${session.title} ${session.location} ${session.server}`.toLowerCase();
@@ -33,9 +27,11 @@ export function TrainingSessionsPage() {
         eyebrow="Training module"
         title="Sessions"
         description="View upcoming and previous organised training sessions."
-        actions={canManage ? <button className="primary-button" onClick={() => setDrawerOpen(true)}><Plus size={16} /> New session</button> : null}
+        actions={<a className="primary-button" href="https://docs.google.com/spreadsheets/d/1twcPjyyf3tuwq4L12OhmLz6QkF9_u8I5ai5qn9wAisg/edit" target="_blank" rel="noreferrer"><ExternalLink size={16} /> Open training sheet</a>}
       />
       <TrainingNav />
+
+      <div className="status-note blue-note">Live session dates, bookings and staff are read from the main Google Training Attendance Sheet. Make changes in the sheet while it remains the official source.</div>
 
       {error ? <div className="status-note red-note"><span>{error}</span><button className="secondary-button compact-button" type="button" onClick={() => void reload()}><RefreshCw size={15} /> Try again</button></div> : null}
 
@@ -71,8 +67,6 @@ export function TrainingSessionsPage() {
         })}
         {!loading && !sessions.length ? <div className="roster-empty"><strong>No training sessions found</strong><span>Create a session or change the filters.</span></div> : null}
       </section>
-
-      <CreateSessionDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={(session) => setSessions((current) => [session, ...current])} />
     </>
   );
 }

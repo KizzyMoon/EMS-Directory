@@ -1,4 +1,4 @@
-import { readGoogleRoster, readGoogleTrainingBookings, type GoogleRosterMember } from './googleSheets';
+import { readGoogleRoster, readGoogleTrainingBookings, readGoogleTrainingSessions, type GoogleRosterMember } from './googleSheets';
 
 interface Env {
   FRONTEND_ORIGIN: string;
@@ -802,12 +802,60 @@ function mapTrainingSession(session: DatabaseTrainingSession) {
       detail: activity.detail,
       createdAt: activity.created_at,
     })),
+    source: 'EMS Directory' as const,
   };
 }
 
 const trainingSelect = 'id,type,title,session_date,start_time,end_time,location,server,cadet_capacity,fto_capacity,status,notes,created_by_member:members!training_sessions_created_by_fkey(display_name),training_signups(id,member_id,role,status,signed_up_at,member:members!training_signups_member_id_fkey(display_name,callsign),training_attendance(status,notes)),training_activity(id,label,detail,created_at)';
 
 async function readTrainingSessions(env: Env, sessionId?: string) {
+  if (env.GOOGLE_TRAINING_CSV_URL) {
+    const [googleSessions, roster] = await Promise.all([
+      readGoogleTrainingSessions(env.GOOGLE_TRAINING_CSV_URL),
+      readRoster(env),
+    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    const sessions = googleSessions.map((session) => {
+      const makeSignup = (attendee: { employeeNumber: string; name: string }, role: 'Cadet' | 'FTO') => {
+        const member = roster.find((candidate) => candidate.employeeNumber === attendee.employeeNumber);
+        return {
+          id: `${session.id}-${role.toLowerCase()}-${attendee.employeeNumber}`,
+          memberId: member?.id ?? `sheet-${attendee.employeeNumber}`,
+          memberName: member?.name ?? (attendee.name || `Employee ${attendee.employeeNumber}`),
+          callsign: member?.callsign,
+          role,
+          status: 'Signed Up' as const,
+          signedUpAt: `${session.date}T00:00:00.000Z`,
+        };
+      };
+      const signups = [
+        ...session.cadets.map((attendee) => makeSignup(attendee, 'Cadet')),
+        ...session.ftos.map((attendee) => makeSignup(attendee, 'FTO')),
+      ];
+      return {
+        id: session.id,
+        type: session.type,
+        title: session.title,
+        date: session.date,
+        startTime: session.startTime,
+        endTime: '',
+        location: 'See Training Attendance Sheet',
+        server: session.timezone || session.title.split(' ')[0],
+        cadetCapacity: session.cadetCapacity,
+        ftoCapacity: session.ftoCapacity,
+        status: session.date < today ? 'Completed' as const : 'Open' as const,
+        notes: session.host
+          ? `Hosted by ${session.host}. Bookings and attendance are managed in the main Training Attendance Sheet.`
+          : 'Bookings and attendance are managed in the main Training Attendance Sheet.',
+        createdBy: session.host || 'EMS Training Team',
+        signups,
+        attendance: signups.map((signup) => ({ memberId: signup.memberId, status: 'Pending' as const })),
+        activity: [],
+        source: 'Google Sheets' as const,
+      };
+    });
+    return sessionId ? sessions.filter((session) => session.id === sessionId) : sessions.sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
+  }
   const filter = sessionId ? `&id=eq.${encodeURIComponent(sessionId)}` : '';
   const response = await supabase(env, `training_sessions?select=${trainingSelect}${filter}&order=session_date.desc,start_time.desc`);
   if (!response.ok) throw new Error(`Supabase training lookup failed: ${response.status}`);
@@ -835,6 +883,7 @@ async function handleTrainingSessionsApi(request: Request, env: Env, sessionId?:
     }
 
     if (request.method === 'POST' && !sessionId) {
+      if (env.GOOGLE_TRAINING_CSV_URL) return apiJson(env, { error: 'Training sessions are currently managed in the main Google Training Attendance Sheet' }, 409);
       const input = await readTrainingSessionInput(request);
       const response = await supabase(env, 'training_sessions', {
         method: 'POST',
@@ -889,6 +938,7 @@ async function handleTrainingSignupApi(request: Request, env: Env, sessionId: st
   if (request.method !== 'POST') return apiJson(env, { error: 'Method not allowed' }, 405);
   const auth = await requirePermission(request, env, 'training.read');
   if ('error' in auth) return auth.error;
+  if (env.GOOGLE_TRAINING_CSV_URL) return apiJson(env, { error: 'Sign-ups are currently managed in the main Google Training Attendance Sheet' }, 409);
 
   try {
     const body: unknown = await request.json();
@@ -942,6 +992,7 @@ async function handleTrainingAttendanceApi(request: Request, env: Env, sessionId
   if (request.method !== 'PATCH') return apiJson(env, { error: 'Method not allowed' }, 405);
   const auth = await requirePermission(request, env, 'training.manage');
   if ('error' in auth) return auth.error;
+  if (env.GOOGLE_TRAINING_CSV_URL) return apiJson(env, { error: 'Attendance is currently managed in the main Google Training Attendance Sheet' }, 409);
 
   try {
     const body: unknown = await request.json();

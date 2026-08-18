@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarClock, ClipboardCheck, MapPin, RefreshCw, Server, Users } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ClipboardCheck, ExternalLink, MapPin, RefreshCw, Server, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../../auth/AuthContext';
@@ -64,10 +64,12 @@ export function TrainingSessionDetailPage() {
       <PageHeader
         eyebrow={session.type}
         title={session.title}
-        description={`${formatTrainingDate(session.date)} · ${session.startTime}–${session.endTime}`}
+        description={`${formatTrainingDate(session.date)} · ${session.startTime}${session.endTime ? `–${session.endTime}` : ''} ${session.server}`}
         actions={<Link className="secondary-button inline-button" to="/training/sessions"><ArrowLeft size={16} /> Back</Link>}
       />
       <TrainingNav />
+
+      {session.source === 'Google Sheets' ? <div className="status-note blue-note">This is live data from the main Training Attendance Sheet. Sign-ups and attendance must be changed there. <a className="inline-link" href="https://docs.google.com/spreadsheets/d/1twcPjyyf3tuwq4L12OhmLz6QkF9_u8I5ai5qn9wAisg/edit" target="_blank" rel="noreferrer">Open sheet <ExternalLink size={14} /></a></div> : null}
 
       {actionError ? <div className="status-note red-note">{actionError}</div> : null}
 
@@ -85,7 +87,7 @@ export function TrainingSessionDetailPage() {
             {ftos.map((person) => <div key={person.id}><span className="mono-value">{person.callsign}</span><strong>{person.memberName}</strong><StatusBadge tone="blue">{person.status}</StatusBadge></div>)}
             {!ftos.length ? <p className="muted-text">No FTOs have signed up.</p> : null}
           </div>
-          <button className="secondary-button full-width-button" type="button" disabled={Boolean(currentSignup) || savingRole !== null} onClick={() => void signup('FTO')}>
+          <button className="secondary-button full-width-button" type="button" disabled={session.source === 'Google Sheets' || Boolean(currentSignup) || savingRole !== null} onClick={() => void signup('FTO')}>
             {currentSignup ? `Signed up as ${currentSignup.role}` : savingRole === 'FTO' ? 'Saving…' : 'Volunteer as FTO'}
           </button>
         </section>
@@ -96,7 +98,7 @@ export function TrainingSessionDetailPage() {
             {cadets.map((person) => <div key={person.id}><span className="mono-value">{person.callsign}</span><strong>{person.memberName}</strong><StatusBadge tone="pink">{person.status}</StatusBadge></div>)}
             {!cadets.length ? <p className="muted-text">No cadets have signed up.</p> : null}
           </div>
-          <button className="primary-button full-width-button" type="button" disabled={Boolean(currentSignup) || savingRole !== null} onClick={() => void signup('Cadet')}>
+          <button className="primary-button full-width-button" type="button" disabled={session.source === 'Google Sheets' || Boolean(currentSignup) || savingRole !== null} onClick={() => void signup('Cadet')}>
             {currentSignup ? `Signed up as ${currentSignup.role}` : savingRole === 'Cadet' ? 'Saving…' : 'Sign up'}
           </button>
         </section>
