@@ -44,7 +44,7 @@ export function DashboardPage() {
     void loadCadets();
   }, [loadCadets]);
 
-  const awaitingDayOne = cadets.filter((cadet) => cadet.stage === 'Awaiting Day 1');
+  const notBooked = cadets.filter((cadet) => cadet.stage === 'Not currently booked');
   const awaitingDayTwo = cadets.filter((cadet) => cadet.stage === 'Day 2 Booked');
   const rideAlongReady = cadets.filter((cadet) => cadet.stage === 'Available for Ride Alongs');
   const today = new Date().toISOString().slice(0, 10);
@@ -78,7 +78,7 @@ export function DashboardPage() {
           <div><strong>{canReadCadets ? rideAlongReady.length : '—'}</strong><span>Ride-along ready</span></div>
         </div>
         <div className="action-stat">
-          <div><strong>{canReadCadets ? awaitingDayOne.length : '—'}</strong><span>Awaiting Day 1</span></div>
+          <div><strong>{canReadCadets ? notBooked.length : '—'}</strong><span>Not booked</span></div>
         </div>
         <div className="action-stat">
           <div><strong>{canReadCadets ? awaitingDayTwo.length : '—'}</strong><span>Awaiting Day 2</span></div>
