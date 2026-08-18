@@ -1414,10 +1414,29 @@ async function handleSession(request: Request, env: Env) {
   }, { headers: { ...jsonHeaders, ...corsHeaders(env) } });
 }
 
+async function handleHealth(env: Env) {
+  const [roster, training] = await Promise.allSettled([
+    env.GOOGLE_ROSTER_CSV_URL ? readGoogleRoster(env.GOOGLE_ROSTER_CSV_URL) : Promise.reject(new Error('Roster source is not configured')),
+    env.GOOGLE_TRAINING_CSV_URL ? readGoogleTrainingSessions(env.GOOGLE_TRAINING_CSV_URL) : Promise.reject(new Error('Training source is not configured')),
+  ]);
+  const healthy = roster.status === 'fulfilled' && training.status === 'fulfilled';
+  return apiJson(env, {
+    ok: healthy,
+    version: 'google-sources-v1',
+    sources: {
+      roster: { ok: roster.status === 'fulfilled', count: roster.status === 'fulfilled' ? roster.value.length : 0 },
+      training: { ok: training.status === 'fulfilled', count: training.status === 'fulfilled' ? training.value.length : 0 },
+    },
+  }, healthy ? 200 : 503);
+}
+
 export default {
   async fetch(request: Request, env: Env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders(env) });
     const url = new URL(request.url);
+    if (url.pathname === '/api/health') return request.method === 'GET'
+      ? handleHealth(env)
+      : apiJson(env, { error: 'Method not allowed' }, 405);
     if (url.pathname === '/auth/discord/start') return handleDiscordStart(request, env);
     if (url.pathname === '/auth/discord/callback') return handleDiscordCallback(request, env);
     if (url.pathname === '/auth/session') return handleSession(request, env);
