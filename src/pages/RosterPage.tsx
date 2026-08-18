@@ -1,31 +1,29 @@
-import { ArrowRight, Search, SlidersHorizontal, Users } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowRight, Plus, RefreshCw, Search, SlidersHorizontal, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { hasAnyPermission } from '../auth/permissions';
+import { MemberEditorDrawer } from '../components/MemberEditorDrawer';
 import { PageHeader } from '../components/PageHeader';
 import { QualificationBadge } from '../components/QualificationBadge';
 import { StatusBadge } from '../components/StatusBadge';
-import { mockMembers } from '../data/mockMembers';
-import type { EmsRank, MemberStatus } from '../types/member';
+import { getRoster } from '../lib/rosterApi';
+import { EMS_RANKS, type EmsMember, type EmsRank, type MemberStatus } from '../types/member';
 
 const ranks: Array<EmsRank | 'All ranks'> = [
   'All ranks',
-  'Chief',
-  'Deputy Chief',
-  'Captain',
-  'Lieutenant',
-  'Sergeant',
-  'Senior EMT',
-  'EMT IV',
-  'EMT III',
-  'EMT II',
-  'EMT I',
-  'Probationer',
-  'Cadet',
+  ...EMS_RANKS,
 ];
 
 const statuses: Array<MemberStatus | 'All statuses'> = ['All statuses', 'Active', 'LOA', 'Inactive'];
 
 export function RosterPage() {
+  const { user } = useAuth();
+  const canManage = hasAnyPermission(user, ['roster.manage']);
+  const [members, setMembers] = useState<EmsMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [rank, setRank] = useState<(typeof ranks)[number]>('All ranks');
   const [status, setStatus] = useState<(typeof statuses)[number]>('All statuses');
@@ -33,7 +31,7 @@ export function RosterPage() {
   const filteredMembers = useMemo(() => {
     const normalisedQuery = query.trim().toLowerCase();
 
-    return mockMembers.filter((member) => {
+    return members.filter((member) => {
       const matchesQuery = !normalisedQuery || [
         member.name,
         member.callsign,
@@ -48,7 +46,23 @@ export function RosterPage() {
 
       return matchesQuery && matchesRank && matchesStatus;
     });
-  }, [query, rank, status]);
+  }, [members, query, rank, status]);
+
+  const loadRoster = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      setMembers(await getRoster());
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load the EMS roster.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRoster();
+  }, [loadRoster]);
 
   return (
     <>
@@ -56,8 +70,20 @@ export function RosterPage() {
         eyebrow="Personnel"
         title="EMS Roster"
         description="Shared department roster, account details and qualifications."
-        actions={<span className="roster-count"><Users size={16} /> {filteredMembers.length} members</span>}
+        actions={(
+          <div className="roster-header-actions">
+            <span className="roster-count"><Users size={16} /> {filteredMembers.length} members</span>
+            {canManage ? <button className="primary-button" type="button" onClick={() => setEditorOpen(true)}><Plus size={16} /> Add member</button> : null}
+          </div>
+        )}
       />
+
+      {loadError ? (
+        <div className="status-note red-note roster-load-note">
+          <span>{loadError}</span>
+          <button className="secondary-button compact-button" type="button" onClick={() => void loadRoster()}><RefreshCw size={15} /> Try again</button>
+        </div>
+      ) : null}
 
       <section className="glass-card roster-toolbar" aria-label="Roster filters">
         <label className="roster-search">
@@ -97,7 +123,8 @@ export function RosterPage() {
           <span />
         </div>
 
-        <div className="roster-list">
+        <div className={loading ? 'roster-list roster-list-loading' : 'roster-list'} aria-busy={loading}>
+          {loading ? <div className="roster-loading"><RefreshCw className="spin-icon" size={18} /> Loading roster…</div> : null}
           {filteredMembers.map((member) => {
             const qualifications = [
               member.qualifications.fto ? 'FTO' : null,
@@ -126,7 +153,7 @@ export function RosterPage() {
             );
           })}
 
-          {!filteredMembers.length ? (
+          {!loading && !filteredMembers.length ? (
             <div className="roster-empty">
               <strong>No members found</strong>
               <span>Try clearing or changing the roster filters.</span>
@@ -134,6 +161,14 @@ export function RosterPage() {
           ) : null}
         </div>
       </section>
+
+      <MemberEditorDrawer
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        onSaved={(member) => {
+          if (member) setMembers((current) => [...current, member]);
+        }}
+      />
     </>
   );
 }

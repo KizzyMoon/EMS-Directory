@@ -1,12 +1,47 @@
-import { ArrowLeft, Hash, History, MessageCircle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Hash, History, MessageCircle, Pencil, RefreshCw, ShieldCheck } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { hasAnyPermission } from '../auth/permissions';
+import { MemberEditorDrawer } from '../components/MemberEditorDrawer';
 import { QualificationBadge } from '../components/QualificationBadge';
 import { StatusBadge } from '../components/StatusBadge';
-import { mockMembers } from '../data/mockMembers';
+import { getRosterMember } from '../lib/rosterApi';
+import type { EmsMember } from '../types/member';
 
 export function MemberProfilePage() {
   const { memberId } = useParams();
-  const member = mockMembers.find((item) => item.id === memberId);
+  const { user } = useAuth();
+  const canManage = hasAnyPermission(user, ['roster.manage']);
+  const [member, setMember] = useState<EmsMember | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  const loadMember = useCallback(async () => {
+    if (!memberId) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      setMember(await getRosterMember(memberId));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load this roster member.');
+    } finally {
+      setLoading(false);
+    }
+  }, [memberId]);
+
+  useEffect(() => {
+    void loadMember();
+  }, [loadMember]);
+
+  if (loading) {
+    return <section className="glass-card empty-state"><RefreshCw className="spin-icon" size={20} /><h1>Loading member…</h1></section>;
+  }
+
+  if (loadError) {
+    return <section className="glass-card empty-state"><h1>Unable to load member</h1><p>{loadError}</p><button className="secondary-button inline-button" type="button" onClick={() => void loadMember()}><RefreshCw size={16} /> Try again</button></section>;
+  }
 
   if (!member) {
     return (
@@ -27,8 +62,9 @@ export function MemberProfilePage() {
 
   return (
     <>
-      <div className="member-page-toolbar">
+      <div className="member-page-toolbar member-page-actions">
         <Link className="secondary-button inline-button" to="/roster"><ArrowLeft size={16} /> Back to roster</Link>
+        {canManage ? <button className="primary-button inline-button" type="button" onClick={() => setEditorOpen(true)}><Pencil size={16} /> Edit member</button> : null}
       </div>
 
       <section className="glass-card member-command-header">
@@ -103,6 +139,13 @@ export function MemberProfilePage() {
           </div>
         </section>
       </div>
+
+      <MemberEditorDrawer
+        member={member}
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        onSaved={(savedMember) => setMember(savedMember)}
+      />
     </>
   );
 }

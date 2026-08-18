@@ -1,16 +1,19 @@
-export type EmsRank =
-  | 'Chief'
-  | 'Deputy Chief'
-  | 'Captain'
-  | 'Lieutenant'
-  | 'Sergeant'
-  | 'Senior EMT'
-  | 'EMT IV'
-  | 'EMT III'
-  | 'EMT II'
-  | 'EMT I'
-  | 'Probationer'
-  | 'Cadet';
+export const EMS_RANKS = [
+  'Chief',
+  'Deputy Chief',
+  'Captain',
+  'Lieutenant',
+  'Sergeant',
+  'Senior EMT',
+  'EMT IV',
+  'EMT III',
+  'EMT II',
+  'EMT I',
+  'Probationer',
+  'Cadet',
+] as const;
+
+export type EmsRank = (typeof EMS_RANKS)[number];
 
 export type MemberStatus = 'Active' | 'LOA' | 'Inactive';
 
@@ -34,3 +37,5 @@ export interface EmsMember {
   status: MemberStatus;
   qualifications: MemberQualifications;
 }
+
+export type RosterMemberInput = Omit<EmsMember, 'id' | 'discordName' | 'discordUserId'>;
