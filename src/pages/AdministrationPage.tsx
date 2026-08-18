@@ -1,4 +1,4 @@
-import { CalendarDays, ExternalLink, Link2, RefreshCw, Users } from 'lucide-react';
+import { CalendarDays, ExternalLink, GraduationCap, Link2, RefreshCw, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
@@ -10,6 +10,7 @@ interface HealthStatus {
   version: string;
   sources: {
     roster: { ok: boolean; count: number };
+    cadets: { ok: boolean; count: number };
     training: { ok: boolean; count: number };
   };
 }
@@ -41,6 +42,7 @@ export function AdministrationPage() {
 
       <section className="training-summary">
         <div><Users size={18} /><strong>{health?.sources.roster.count ?? '—'}</strong><span>Roster members</span><StatusBadge tone={health?.sources.roster.ok ? 'green' : 'red'}>{health?.sources.roster.ok ? 'Live' : 'Unavailable'}</StatusBadge></div>
+        <div><GraduationCap size={18} /><strong>{health?.sources.cadets.count ?? '—'}</strong><span>Cadets</span><StatusBadge tone={health?.sources.cadets.ok ? 'green' : 'red'}>{health?.sources.cadets.ok ? 'Live' : 'Unavailable'}</StatusBadge></div>
         <div><CalendarDays size={18} /><strong>{health?.sources.training.count ?? '—'}</strong><span>Training sessions</span><StatusBadge tone={health?.sources.training.ok ? 'green' : 'red'}>{health?.sources.training.ok ? 'Live' : 'Unavailable'}</StatusBadge></div>
       </section>
 
