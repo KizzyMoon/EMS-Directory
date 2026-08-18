@@ -9,6 +9,7 @@ import { DiscordLinkingPage } from './pages/DiscordLinkingPage';
 import { GoogleResourcesPage } from './pages/GoogleResourcesPage';
 import { LoginPage } from './pages/LoginPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
+import { MyProfilePage } from './pages/MyProfilePage';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 import { QuickReferencePage } from './pages/QuickReferencePage';
 import { RosterPage } from './pages/RosterPage';
@@ -86,7 +87,7 @@ const router = createHashRouter([
             ],
           },
           { path: 'quick-reference', element: <QuickReferencePage /> },
-          { path: 'profile', element: <PlaceholderPage title="My Profile" description="Your EMS account, rank, qualifications and activity." /> },
+          { path: 'profile', element: <MyProfilePage /> },
           { path: 'administration', element: <PlaceholderPage title="Administration" description="Members, permissions, imports, audit logs and settings." /> },
           { path: 'administration/discord-linking', element: <DiscordLinkingPage /> },
         ],
