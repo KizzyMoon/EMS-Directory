@@ -3,6 +3,7 @@ import {
   CalendarClock,
   Clock3,
   ClipboardCheck,
+  ExternalLink,
   Megaphone,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -16,6 +17,8 @@ import { cadetStageTone, daysRemaining } from '../modules/cadets/utils';
 import type { CadetRecord } from '../modules/cadets/types';
 import { useTrainingSessions } from '../modules/training/hooks/useTrainingSessions';
 import { formatTrainingDate, getSessionCounts, sessionTone } from '../modules/training/utils';
+
+const TRAINING_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1twcPjyyf3tuwq4L12OhmLz6QkF9_u8I5ai5qn9wAisg/edit';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -103,14 +106,22 @@ export function DashboardPage() {
                 <strong>{session.title} needs {spaces} FTO{spaces === 1 ? '' : 's'}</strong>
                 <span>{formatTrainingDate(session.date)}, {session.startTime} · {counts.ftos} of {session.ftoCapacity} FTO slots filled</span>
               </div>
-              <Link className="secondary-button compact-button" to={`/training/sessions/${session.id}`}>View session</Link>
+              {session.source === 'Google Sheets' ? (
+                <a className="secondary-button compact-button" href={TRAINING_SHEET_URL} target="_blank" rel="noreferrer">Open sheet <ExternalLink size={14} /></a>
+              ) : (
+                <Link className="secondary-button compact-button" to={`/training/sessions/${session.id}`}>View session</Link>
+              )}
             </article>
             );
           })}
           {attendanceToRecord.slice(0, Math.max(0, 3 - sessionsNeedingFtos.length)).map((session) => (
             <article className="priority-row priority-red" key={session.id}>
               <div><strong>Attendance is outstanding for {session.title}</strong><span>{formatTrainingDate(session.date)} · {session.signups.length} sign-ups</span></div>
-              <Link className="primary-button compact-button" to={`/training/sessions/${session.id}`}>Record attendance</Link>
+              {session.source === 'Google Sheets' ? (
+                <a className="primary-button compact-button" href={TRAINING_SHEET_URL} target="_blank" rel="noreferrer">Update sheet <ExternalLink size={14} /></a>
+              ) : (
+                <Link className="primary-button compact-button" to={`/training/sessions/${session.id}`}>Record attendance</Link>
+              )}
             </article>
           ))}
           {!sessionsLoading && canReadTraining && !actionCount ? <p className="muted-text">No training actions need attention.</p> : null}
@@ -164,18 +175,28 @@ export function DashboardPage() {
             <span className="count-chip">{actionCount} open</span>
           </div>
           <div className="task-list">
-            {attendanceToRecord.slice(0, 2).map((session) => (
-              <Link className="task-item" to={`/training/sessions/${session.id}`} key={session.id}>
+            {attendanceToRecord.slice(0, 2).map((session) => {
+              const content = (
+                <>
                 <ClipboardCheck size={18} />
-                <span><strong>Record {session.title} attendance</strong><small>{formatTrainingDate(session.date)}</small></span>
-              </Link>
-            ))}
-            {sessionsNeedingFtos.slice(0, Math.max(0, 2 - attendanceToRecord.length)).map((session) => (
-              <Link className="task-item" to={`/training/sessions/${session.id}`} key={session.id}>
+                <span><strong>{session.source === 'Google Sheets' ? 'Update' : 'Record'} {session.title} attendance</strong><small>{formatTrainingDate(session.date)}</small></span>
+                </>
+              );
+              return session.source === 'Google Sheets'
+                ? <a className="task-item" href={TRAINING_SHEET_URL} target="_blank" rel="noreferrer" key={session.id}>{content}</a>
+                : <Link className="task-item" to={`/training/sessions/${session.id}`} key={session.id}>{content}</Link>;
+            })}
+            {sessionsNeedingFtos.slice(0, Math.max(0, 2 - attendanceToRecord.length)).map((session) => {
+              const content = (
+                <>
                 <CalendarClock size={18} />
                 <span><strong>Fill FTO spaces for {session.title}</strong><small>{formatTrainingDate(session.date)}</small></span>
-              </Link>
-            ))}
+                </>
+              );
+              return session.source === 'Google Sheets'
+                ? <a className="task-item" href={TRAINING_SHEET_URL} target="_blank" rel="noreferrer" key={session.id}>{content}</a>
+                : <Link className="task-item" to={`/training/sessions/${session.id}`} key={session.id}>{content}</Link>;
+            })}
             {!sessionsLoading && canReadTraining && !actionCount ? <p className="muted-text">Your training queue is clear.</p> : null}
             {!canReadTraining ? <p className="muted-text">No training queue is available for your rank.</p> : null}
           </div>
