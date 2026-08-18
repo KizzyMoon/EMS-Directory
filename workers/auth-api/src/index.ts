@@ -689,11 +689,13 @@ async function readCadets(env: Env, memberId?: string) {
   ]);
   let dayOneBookings = new Set<string>();
   let dayTwoBookings = new Set<string>();
+  let dayOneCompletions = new Set<string>();
   if (env.GOOGLE_TRAINING_CSV_URL) {
     try {
       const bookings = await readGoogleTrainingBookings(env.GOOGLE_TRAINING_CSV_URL);
       dayOneBookings = bookings.dayOne;
       dayTwoBookings = bookings.dayTwo;
+      dayOneCompletions = bookings.dayOneComplete;
     } catch (error) {
       console.error(JSON.stringify({
         message: 'Google training booking lookup failed',
@@ -707,8 +709,11 @@ async function readCadets(env: Env, memberId?: string) {
       candidate.id === member.id || candidate.employee_number === member.employeeNumber,
     );
     const record = databaseCadet?.cadet_records?.[0];
+    const sheetDayOneComplete = dayOneCompletions.has(member.employeeNumber);
     const bookingStage = dayTwoBookings.has(member.employeeNumber)
       ? 'Day 2 Booked'
+      : sheetDayOneComplete
+        ? 'Available for Ride Alongs'
       : dayOneBookings.has(member.employeeNumber)
         ? 'Day 1 Signed Up'
         : 'Not currently booked';
@@ -721,12 +726,14 @@ async function readCadets(env: Env, memberId?: string) {
       startDate: record?.start_date ?? null,
       deadline: record?.deadline ?? null,
       stage: record?.stage ?? bookingStage,
-      dayOneComplete: record?.day_one_complete ?? false,
+      dayOneComplete: record?.day_one_complete ?? sheetDayOneComplete,
       dayOneSessionId: record?.day_one_session_id ?? undefined,
       dayTwoSessionId: record?.day_two_session_id ?? undefined,
       nextStep: record?.next_step
         ?? (bookingStage === 'Day 2 Booked'
           ? 'Booked on the current Day 2 training sheet.'
+          : bookingStage === 'Available for Ride Alongs'
+            ? 'Day 1 is marked complete on the current training sheet; ready for ride-along training.'
           : bookingStage === 'Day 1 Signed Up'
             ? 'Booked on the current Day 1 training sheet.'
             : 'No current Day 1 or Day 2 booking is listed.'),
@@ -816,7 +823,7 @@ async function readTrainingSessions(env: Env, sessionId?: string) {
     ]);
     const today = new Date().toISOString().slice(0, 10);
     const sessions = googleSessions.map((session) => {
-      const makeSignup = (attendee: { employeeNumber: string; name: string }, role: 'Cadet' | 'FTO') => {
+      const makeSignup = (attendee: { employeeNumber: string; name: string; complete: boolean }, role: 'Cadet' | 'FTO') => {
         const member = roster.find((candidate) => candidate.employeeNumber === attendee.employeeNumber);
         return {
           id: `${session.id}-${role.toLowerCase()}-${attendee.employeeNumber}`,
@@ -824,7 +831,7 @@ async function readTrainingSessions(env: Env, sessionId?: string) {
           memberName: member?.name ?? (attendee.name || `Employee ${attendee.employeeNumber}`),
           callsign: member?.callsign,
           role,
-          status: 'Signed Up' as const,
+          status: attendee.complete ? 'Attended' as const : 'Signed Up' as const,
           signedUpAt: `${session.date}T00:00:00.000Z`,
         };
       };
@@ -832,6 +839,13 @@ async function readTrainingSessions(env: Env, sessionId?: string) {
         ...session.cadets.map((attendee) => makeSignup(attendee, 'Cadet')),
         ...session.ftos.map((attendee) => makeSignup(attendee, 'FTO')),
       ];
+      const attendance = [
+        ...session.cadets.map((attendee) => ({ attendee, role: 'Cadet' as const })),
+        ...session.ftos.map((attendee) => ({ attendee, role: 'FTO' as const })),
+      ].map(({ attendee, role }) => {
+        const signup = makeSignup(attendee, role);
+        return { memberId: signup.memberId, status: attendee.complete ? 'Attended' as const : 'Pending' as const };
+      });
       return {
         id: session.id,
         type: session.type,
@@ -849,7 +863,7 @@ async function readTrainingSessions(env: Env, sessionId?: string) {
           : 'Bookings and attendance are managed in the main Training Attendance Sheet.',
         createdBy: session.host || 'EMS Training Team',
         signups,
-        attendance: signups.map((signup) => ({ memberId: signup.memberId, status: 'Pending' as const })),
+        attendance,
         activity: [],
         source: 'Google Sheets' as const,
       };
@@ -1422,7 +1436,7 @@ async function handleHealth(env: Env) {
   const healthy = roster.status === 'fulfilled' && training.status === 'fulfilled';
   return apiJson(env, {
     ok: healthy,
-    version: 'google-sources-v1',
+    version: 'google-sources-v2',
     sources: {
       roster: { ok: roster.status === 'fulfilled', count: roster.status === 'fulfilled' ? roster.value.length : 0 },
       training: { ok: training.status === 'fulfilled', count: training.status === 'fulfilled' ? training.value.length : 0 },
