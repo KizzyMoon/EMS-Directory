@@ -2,12 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { getTrainingSessions } from '../../../lib/trainingApi';
 import type { TrainingSession } from '../types';
 
-export function useTrainingSessions() {
+export function useTrainingSessions(enabled = true) {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
+    if (!enabled) {
+      setSessions([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -17,7 +23,7 @@ export function useTrainingSessions() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     void reload();
