@@ -8,6 +8,15 @@ export function formatTrainingDate(date: string) {
   }).format(new Date(`${date}T12:00:00`));
 }
 
+export function formatTrainingActivityDate(date: string) {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+}
+
 export function getSessionCounts(session: TrainingSession) {
   const active = session.signups.filter((signup) => signup.status !== 'Withdrawn' && signup.status !== 'Cancelled');
   return {
