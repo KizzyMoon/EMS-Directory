@@ -3,7 +3,6 @@ import type {
   AttendanceStatus,
   SignupRole,
   TrainingSession,
-  TrainingSessionInput,
 } from '../modules/training/types';
 import { apiRequest } from './api';
 
@@ -16,14 +15,6 @@ export async function getTrainingSessions(): Promise<TrainingSession[]> {
 export async function getTrainingSession(sessionId: string): Promise<TrainingSession | null> {
   if (!isBackendConfigured) return null;
   const response = await apiRequest<{ session: TrainingSession }>(`/api/training-sessions/${encodeURIComponent(sessionId)}`);
-  return response.session;
-}
-
-export async function createTrainingSession(input: TrainingSessionInput): Promise<TrainingSession> {
-  const response = await apiRequest<{ session: TrainingSession }>('/api/training-sessions', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
   return response.session;
 }
 
