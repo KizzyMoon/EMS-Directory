@@ -1,6 +1,6 @@
 # EMS Directory
 
-CAD-style internal EMS website foundation for GitHub Pages, Discord login, rank permissions and structured EMS records.
+Internal EMS operations website for personnel, cadets, training and ride-along records.
 
 ## Architecture
 
@@ -12,13 +12,16 @@ GitHub Pages is only the static interface. It must not contain Discord client se
 
 ## Current status
 
-- CAD-style application shell
-- Dashboard, roster, cadets, training and ride-along foundations
-- GitHub Pages deployment workflow
-- Environment placeholders in `.env.example`
-- Cloudflare Worker scaffold for Discord OAuth/session handling
-- Supabase core security schema
-- Manual Discord ID linking screen at `#/administration/discord-linking`
+- Discord OAuth with rank-based permissions
+- Live personnel roster from the main EMS Google Sheet
+- Live cadet identities, training bookings and completion checkboxes from Google Sheets
+- Live EU/NA Day 1 and Day 2 sessions, cadets, FTOs and helpers
+- Supabase-backed Discord identity links, ride-alongs, feedback and audit records
+- Real EMS Google Docs/Sheets linked from Training Sheets, Knowledge Base, Forms and Quick Reference
+- Source-health endpoint at `https://ems-directory.chelseacaitline.workers.dev/api/health`
+- GitHub Pages production site at `https://kizzymoon.github.io/EMS-Directory/`
+
+Google Sheets remain authoritative during the migration. Roster and training writes are intentionally blocked in EMS Directory until those workflows are fully moved to Supabase.
 
 ## Local setup
 
@@ -76,6 +79,8 @@ Discord IDs are allowed to start blank. A member cannot sign in until their `dis
    - `FRONTEND_PATH`
    - `SUPABASE_URL`
    - `DISCORD_CLIENT_ID`
+   - `GOOGLE_ROSTER_CSV_URL`
+   - `GOOGLE_TRAINING_CSV_URL`
 4. Set secrets with Wrangler:
 
 ```bash
@@ -93,12 +98,10 @@ https://your-worker.your-subdomain.workers.dev/auth/discord/callback
 
 ## Manual Discord ID workflow
 
-Until the roster has Discord IDs:
-
 1. Add or import the roster member without a Discord ID.
 2. Ask the member to provide their Discord user ID, not their username.
 3. Verify it in Discord.
-4. Use `#/administration/discord-linking` to record the ID once the backend write endpoint is connected.
+4. Use `#/administration/discord-linking` to record the ID.
 5. Audit every link/correction.
 
 Discord usernames can change, so they are only display metadata. The permanent account match is the Discord user ID.
@@ -111,11 +114,12 @@ npm run build
 npm run lint
 ```
 
-## Commit and push
+## Production verification
+
+The public health endpoint verifies that the deployed Worker can read both authoritative Google sources without exposing roster content:
 
 ```bash
-git status
-git add .
-git commit -m "Build EMS Directory auth foundation"
-git push origin main
+curl https://ems-directory.chelseacaitline.workers.dev/api/health
 ```
+
+A healthy response reports `ok: true`, the deployed source-reader version, and non-sensitive roster/training counts.
