@@ -30,6 +30,7 @@ export function CadetsOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const { rideAlongs } = useRideAlongs();
+  const hasDeadlineData = records.some((cadet) => Boolean(cadet.deadline));
 
   const loadCadets = useCallback(async () => {
     setLoading(true);
@@ -87,9 +88,11 @@ export function CadetsOverviewPage() {
         <select value={stage} onChange={(event) => setStage(event.target.value as CadetStage | 'All stages')}>
           {stages.map((option) => <option key={option}>{option}</option>)}
         </select>
-        <button className={deadlineOnly ? 'filter-toggle active' : 'filter-toggle'} onClick={() => setDeadlineOnly((value) => !value)} type="button">
-          <AlertTriangle size={15} /> Approaching deadline
-        </button>
+        {hasDeadlineData ? (
+          <button className={deadlineOnly ? 'filter-toggle active' : 'filter-toggle'} onClick={() => setDeadlineOnly((value) => !value)} type="button">
+            <AlertTriangle size={15} /> Approaching deadline
+          </button>
+        ) : null}
       </section>
 
       <section className="glass-card cadet-table-card">
@@ -106,7 +109,7 @@ export function CadetsOverviewPage() {
               <strong>{cadet.name}</strong>
               <span className="mono-value">{cadet.employeeNumber}</span>
               <StatusBadge tone={cadetStageTone(cadet.stage)}>{cadet.stage}</StatusBadge>
-              <span className={remaining !== null && remaining <= 10 ? 'deadline-text' : ''}>{remaining ?? '—'}</span>
+              <span className={remaining !== null && remaining <= 10 ? 'deadline-text' : ''}>{remaining ?? (cadet.source === 'Google Sheets' ? 'Restricted' : '—')}</span>
               <span>{stats.rideAlongCount}</span>
               <span>{stats.uniqueFtoCount}</span>
               <span>{stats.currentFocus}</span>

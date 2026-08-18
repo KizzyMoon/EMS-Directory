@@ -82,9 +82,9 @@ export function CadetProfilePage() {
 
       <section className="cadet-profile-header">
         <div><span>Stage</span><StatusBadge tone={cadetStageTone(cadet.stage)}>{cadet.stage}</StatusBadge></div>
-        <div><span>Started</span><strong>{formatCadetDate(cadet.startDate)}</strong></div>
-        <div><span>Deadline</span><strong>{formatCadetDate(cadet.deadline)}</strong></div>
-        <div><span>Days remaining</span><strong className={remaining !== null && remaining <= 10 ? 'deadline-text' : ''}>{remaining ?? 'Not set'}</strong></div>
+        <div><span>Started</span><strong>{cadet.source === 'Google Sheets' && !cadet.startDate ? 'Restricted tracker' : formatCadetDate(cadet.startDate)}</strong></div>
+        <div><span>Deadline</span><strong>{cadet.source === 'Google Sheets' && !cadet.deadline ? 'Restricted tracker' : formatCadetDate(cadet.deadline)}</strong></div>
+        <div><span>Days remaining</span><strong className={remaining !== null && remaining <= 10 ? 'deadline-text' : ''}>{remaining ?? (cadet.source === 'Google Sheets' ? 'Unavailable' : 'Not set')}</strong></div>
       </section>
 
       <section className="cadet-progress-strip">
