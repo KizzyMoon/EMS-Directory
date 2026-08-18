@@ -66,6 +66,52 @@ interface DatabaseCadetMember {
   }>;
 }
 
+interface DatabaseTrainingSession {
+  id: string;
+  type: string;
+  title: string;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  server: string;
+  cadet_capacity: number;
+  fto_capacity: number;
+  status: string;
+  notes: string;
+  created_by_member: { display_name: string } | Array<{ display_name: string }> | null;
+  training_signups: Array<{
+    id: string;
+    member_id: string;
+    role: string;
+    status: string;
+    signed_up_at: string;
+    member: { display_name: string; callsign: string | null } | Array<{ display_name: string; callsign: string | null }> | null;
+    training_attendance: { status: string; notes: string | null } | Array<{ status: string; notes: string | null }> | null;
+  }>;
+  training_activity: Array<{
+    id: string;
+    label: string;
+    detail: string;
+    created_at: string;
+  }>;
+}
+
+interface TrainingSessionInput {
+  type: 'Day 1' | 'Day 2' | 'Other Training' | 'Probationer Test';
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  server: string;
+  cadetCapacity: number;
+  ftoCapacity: number;
+  notes: string;
+}
+
+type TrainingAttendanceStatus = 'Pending' | 'Attended' | 'Late' | 'No Show' | 'Cancelled' | 'Excused';
+
 interface RosterMemberInput {
   name: string;
   callsign: string;
@@ -264,6 +310,37 @@ async function readDiscordLinkInput(request: Request): Promise<DiscordLinkInput>
     memberId: requiredString(body.memberId, 'Member'),
     discordUserId,
     note: typeof body.note === 'string' ? body.note.trim() : '',
+  };
+}
+
+async function readTrainingSessionInput(request: Request): Promise<TrainingSessionInput> {
+  const body: unknown = await request.json();
+  if (!isRecord(body)) throw new Error('Invalid training session data');
+  const allowedTypes: TrainingSessionInput['type'][] = ['Day 1', 'Day 2', 'Other Training', 'Probationer Test'];
+  if (!allowedTypes.includes(body.type as TrainingSessionInput['type'])) throw new Error('Invalid training type');
+  const date = requiredString(body.date, 'Date');
+  const startTime = requiredString(body.startTime, 'Start time');
+  const endTime = requiredString(body.endTime, 'End time');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Invalid training date');
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime) || endTime <= startTime) {
+    throw new Error('End time must be after the start time');
+  }
+  const cadetCapacity = Number(body.cadetCapacity);
+  const ftoCapacity = Number(body.ftoCapacity);
+  if (!Number.isInteger(cadetCapacity) || cadetCapacity < 1 || !Number.isInteger(ftoCapacity) || ftoCapacity < 1) {
+    throw new Error('Session capacities must be positive whole numbers');
+  }
+  return {
+    type: body.type as TrainingSessionInput['type'],
+    title: requiredString(body.title, 'Title'),
+    date,
+    startTime,
+    endTime,
+    location: requiredString(body.location, 'Location'),
+    server: requiredString(body.server, 'Server'),
+    cadetCapacity,
+    ftoCapacity,
+    notes: typeof body.notes === 'string' ? body.notes.trim() : '',
   };
 }
 
@@ -476,6 +553,265 @@ async function handleCadetsApi(request: Request, env: Env, memberId?: string) {
   }
 }
 
+function relatedOne<T>(value: T | T[] | null | undefined): T | undefined {
+  return Array.isArray(value) ? value[0] : value ?? undefined;
+}
+
+function mapTrainingSession(session: DatabaseTrainingSession) {
+  const signups = (session.training_signups ?? []).map((signup) => {
+    const member = relatedOne(signup.member);
+    return {
+      id: signup.id,
+      memberId: signup.member_id,
+      memberName: member?.display_name ?? 'Unknown member',
+      callsign: member?.callsign ?? undefined,
+      role: signup.role,
+      status: signup.status,
+      signedUpAt: signup.signed_up_at,
+    };
+  });
+  const attendance = (session.training_signups ?? []).map((signup) => {
+    const record = relatedOne(signup.training_attendance);
+    return {
+      memberId: signup.member_id,
+      status: record?.status ?? 'Pending',
+      notes: record?.notes ?? undefined,
+    };
+  });
+  return {
+    id: session.id,
+    type: session.type,
+    title: session.title,
+    date: session.session_date,
+    startTime: session.start_time.slice(0, 5),
+    endTime: session.end_time.slice(0, 5),
+    location: session.location,
+    server: session.server,
+    cadetCapacity: session.cadet_capacity,
+    ftoCapacity: session.fto_capacity,
+    status: session.status,
+    notes: session.notes,
+    createdBy: relatedOne(session.created_by_member)?.display_name ?? 'EMS',
+    signups,
+    attendance,
+    activity: (session.training_activity ?? []).map((activity) => ({
+      id: activity.id,
+      label: activity.label,
+      detail: activity.detail,
+      createdAt: activity.created_at,
+    })),
+  };
+}
+
+const trainingSelect = 'id,type,title,session_date,start_time,end_time,location,server,cadet_capacity,fto_capacity,status,notes,created_by_member:members!training_sessions_created_by_fkey(display_name),training_signups(id,member_id,role,status,signed_up_at,member:members!training_signups_member_id_fkey(display_name,callsign),training_attendance(status,notes)),training_activity(id,label,detail,created_at)';
+
+async function readTrainingSessions(env: Env, sessionId?: string) {
+  const filter = sessionId ? `&id=eq.${encodeURIComponent(sessionId)}` : '';
+  const response = await supabase(env, `training_sessions?select=${trainingSelect}${filter}&order=session_date.desc,start_time.desc`);
+  if (!response.ok) throw new Error(`Supabase training lookup failed: ${response.status}`);
+  return (await response.json() as DatabaseTrainingSession[]).map(mapTrainingSession);
+}
+
+async function recordTrainingActivity(env: Env, sessionId: string, label: string, detail: string) {
+  const response = await supabase(env, 'training_activity', {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, label, detail }),
+  });
+  if (!response.ok) throw new Error(`Supabase training activity write failed: ${response.status}`);
+}
+
+async function handleTrainingSessionsApi(request: Request, env: Env, sessionId?: string) {
+  const permission = request.method === 'GET' ? 'training.read' : 'training.manage';
+  const auth = await requirePermission(request, env, permission);
+  if ('error' in auth) return auth.error;
+
+  try {
+    if (request.method === 'GET') {
+      const sessions = await readTrainingSessions(env, sessionId);
+      if (sessionId && !sessions[0]) return apiJson(env, { error: 'Training session not found' }, 404);
+      return apiJson(env, sessionId ? { session: sessions[0] } : { sessions });
+    }
+
+    if (request.method === 'POST' && !sessionId) {
+      const input = await readTrainingSessionInput(request);
+      const response = await supabase(env, 'training_sessions', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: input.type,
+          title: input.title,
+          session_date: input.date,
+          start_time: input.startTime,
+          end_time: input.endTime,
+          location: input.location,
+          server: input.server,
+          cadet_capacity: input.cadetCapacity,
+          fto_capacity: input.ftoCapacity,
+          notes: input.notes,
+          created_by: auth.member.id,
+        }),
+      });
+      if (!response.ok) throw new Error(`Supabase training create failed: ${response.status}`);
+      const [created] = await response.json() as Array<{ id: string }>;
+      await recordTrainingActivity(env, created.id, 'Session created', `Created by ${auth.member.display_name}`);
+      const auditResponse = await supabase(env, 'audit_logs', {
+        method: 'POST',
+        body: JSON.stringify({
+          actor_member_id: auth.member.id,
+          action: 'training.session.created',
+          record_type: 'training_session',
+          record_id: created.id,
+          new_value: input,
+        }),
+      });
+      if (!auditResponse.ok) throw new Error(`Supabase training audit write failed: ${auditResponse.status}`);
+      const [session] = await readTrainingSessions(env, created.id);
+      return apiJson(env, { session }, 201);
+    }
+
+    return apiJson(env, { error: 'Method not allowed' }, 405);
+  } catch (error) {
+    console.error(JSON.stringify({
+      message: 'Training session API request failed',
+      method: request.method,
+      sessionId: sessionId ?? null,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    const message = error instanceof Error && !error.message.startsWith('Supabase')
+      ? error.message
+      : 'Unable to complete the training request';
+    return apiJson(env, { error: message }, 500);
+  }
+}
+
+async function handleTrainingSignupApi(request: Request, env: Env, sessionId: string) {
+  if (request.method !== 'POST') return apiJson(env, { error: 'Method not allowed' }, 405);
+  const auth = await requirePermission(request, env, 'training.read');
+  if ('error' in auth) return auth.error;
+
+  try {
+    const body: unknown = await request.json();
+    if (!isRecord(body) || (body.role !== 'Cadet' && body.role !== 'FTO')) throw new Error('Invalid training role');
+    const [session] = await readTrainingSessions(env, sessionId);
+    if (!session) return apiJson(env, { error: 'Training session not found' }, 404);
+    if (session.status !== 'Open' && session.status !== 'Full') throw new Error('This session is not accepting sign-ups');
+
+    if (body.role === 'FTO' && !resolvePermissions(auth.member).includes('training.manage')) {
+      const qualificationResponse = await supabase(env, `member_qualifications?member_id=eq.${encodeURIComponent(auth.member.id)}&qualification_key=eq.fto&select=member_id`);
+      if (!qualificationResponse.ok) throw new Error(`Supabase FTO qualification lookup failed: ${qualificationResponse.status}`);
+      const qualifications = await qualificationResponse.json() as Array<{ member_id: string }>;
+      if (!qualifications.length) return apiJson(env, { error: 'Only qualified FTOs can volunteer for this role' }, 403);
+    }
+
+    const existingSignup = session.signups.find((signup) => signup.memberId === auth.member.id);
+    const activeForRole = session.signups.filter((signup) => signup.role === body.role && signup.status !== 'Withdrawn' && signup.status !== 'Cancelled' && signup.status !== 'Waiting List').length;
+    const capacity = body.role === 'Cadet' ? session.cadetCapacity : session.ftoCapacity;
+    const signupStatus = existingSignup?.role === body.role && existingSignup.status === 'Signed Up'
+      ? 'Signed Up'
+      : activeForRole >= capacity ? 'Waiting List' : 'Signed Up';
+    const signupResponse = await supabase(env, 'training_signups?on_conflict=session_id,member_id', {
+      method: 'POST',
+      headers: { prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        member_id: auth.member.id,
+        role: body.role,
+        status: signupStatus,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    if (!signupResponse.ok) throw new Error(`Supabase training sign-up failed: ${signupResponse.status}`);
+    const [signup] = await signupResponse.json() as Array<{ id: string }>;
+    const attendanceResponse = await supabase(env, 'training_attendance?on_conflict=signup_id', {
+      method: 'POST',
+      headers: { prefer: 'resolution=ignore-duplicates,return=minimal' },
+      body: JSON.stringify({ signup_id: signup.id, status: 'Pending' }),
+    });
+    if (!attendanceResponse.ok) throw new Error(`Supabase attendance initialization failed: ${attendanceResponse.status}`);
+    await recordTrainingActivity(env, sessionId, `${body.role} signed up`, `${auth.member.display_name} joined the session${signupStatus === 'Waiting List' ? ' waiting list' : ''}`);
+    const [updated] = await readTrainingSessions(env, sessionId);
+    return apiJson(env, { session: updated });
+  } catch (error) {
+    const message = error instanceof Error && !error.message.startsWith('Supabase') ? error.message : 'Unable to save the training sign-up';
+    return apiJson(env, { error: message }, 500);
+  }
+}
+
+async function handleTrainingAttendanceApi(request: Request, env: Env, sessionId: string) {
+  if (request.method !== 'PATCH') return apiJson(env, { error: 'Method not allowed' }, 405);
+  const auth = await requirePermission(request, env, 'training.manage');
+  if ('error' in auth) return auth.error;
+
+  try {
+    const body: unknown = await request.json();
+    if (!isRecord(body) || !Array.isArray(body.entries)) throw new Error('Invalid attendance data');
+    const allowed: TrainingAttendanceStatus[] = ['Pending', 'Attended', 'Late', 'No Show', 'Cancelled', 'Excused'];
+    const entries = body.entries.map((entry) => {
+      if (!isRecord(entry) || typeof entry.memberId !== 'string' || !allowed.includes(entry.status as TrainingAttendanceStatus)) {
+        throw new Error('Invalid attendance entry');
+      }
+      return {
+        memberId: entry.memberId,
+        status: entry.status as TrainingAttendanceStatus,
+        notes: typeof entry.notes === 'string' ? entry.notes.trim() : '',
+      };
+    });
+    const [session] = await readTrainingSessions(env, sessionId);
+    if (!session) return apiJson(env, { error: 'Training session not found' }, 404);
+
+    for (const entry of entries) {
+      const signup = session.signups.find((item) => item.memberId === entry.memberId);
+      if (!signup) throw new Error('Attendance member is not signed up for this session');
+      const attendanceResponse = await supabase(env, 'training_attendance?on_conflict=signup_id', {
+        method: 'POST',
+        headers: { prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({
+          signup_id: signup.id,
+          status: entry.status,
+          notes: entry.notes || null,
+          updated_by: auth.member.id,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      if (!attendanceResponse.ok) throw new Error(`Supabase attendance save failed: ${attendanceResponse.status}`);
+      const signupStatus = entry.status === 'Attended' || entry.status === 'Late'
+        ? 'Attended'
+        : entry.status === 'No Show'
+          ? 'No Show'
+          : entry.status === 'Cancelled'
+            ? 'Cancelled'
+            : 'Signed Up';
+      const signupResponse = await supabase(env, `training_signups?id=eq.${encodeURIComponent(signup.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: signupStatus, updated_at: new Date().toISOString() }),
+      });
+      if (!signupResponse.ok) throw new Error(`Supabase training sign-up update failed: ${signupResponse.status}`);
+    }
+
+    const sessionResponse = await supabase(env, `training_sessions?id=eq.${encodeURIComponent(sessionId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'Completed', updated_at: new Date().toISOString() }),
+    });
+    if (!sessionResponse.ok) throw new Error(`Supabase training completion failed: ${sessionResponse.status}`);
+    await recordTrainingActivity(env, sessionId, 'Attendance saved', `Recorded by ${auth.member.display_name}`);
+    const auditResponse = await supabase(env, 'audit_logs', {
+      method: 'POST',
+      body: JSON.stringify({
+        actor_member_id: auth.member.id,
+        action: 'training.attendance.saved',
+        record_type: 'training_session',
+        record_id: sessionId,
+        new_value: { entries },
+      }),
+    });
+    if (!auditResponse.ok) throw new Error(`Supabase training audit write failed: ${auditResponse.status}`);
+    const [updated] = await readTrainingSessions(env, sessionId);
+    return apiJson(env, { session: updated });
+  } catch (error) {
+    const message = error instanceof Error && !error.message.startsWith('Supabase') ? error.message : 'Unable to save training attendance';
+    return apiJson(env, { error: message }, 500);
+  }
+}
+
 async function handleDiscordStart(request: Request, env: Env) {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get('returnTo') || `${env.FRONTEND_ORIGIN}${env.FRONTEND_PATH}#/`;
@@ -584,6 +920,12 @@ export default {
     if (rosterMatch) return handleRosterApi(request, env, rosterMatch[1] ? decodeURIComponent(rosterMatch[1]) : undefined);
     const cadetsMatch = url.pathname.match(/^\/api\/cadets(?:\/([^/]+))?$/);
     if (cadetsMatch) return handleCadetsApi(request, env, cadetsMatch[1] ? decodeURIComponent(cadetsMatch[1]) : undefined);
+    const trainingSignupMatch = url.pathname.match(/^\/api\/training-sessions\/([^/]+)\/signup$/);
+    if (trainingSignupMatch) return handleTrainingSignupApi(request, env, decodeURIComponent(trainingSignupMatch[1]));
+    const trainingAttendanceMatch = url.pathname.match(/^\/api\/training-sessions\/([^/]+)\/attendance$/);
+    if (trainingAttendanceMatch) return handleTrainingAttendanceApi(request, env, decodeURIComponent(trainingAttendanceMatch[1]));
+    const trainingMatch = url.pathname.match(/^\/api\/training-sessions(?:\/([^/]+))?$/);
+    if (trainingMatch) return handleTrainingSessionsApi(request, env, trainingMatch[1] ? decodeURIComponent(trainingMatch[1]) : undefined);
     if (url.pathname === '/api/discord-links') return handleDiscordLinkApi(request, env);
     return Response.json({ error: 'Not found' }, { status: 404, headers: { ...jsonHeaders, ...corsHeaders(env) } });
   },

@@ -45,3 +45,16 @@ export interface TrainingSession {
   attendance: TrainingAttendance[];
   activity: TrainingActivity[];
 }
+
+export interface TrainingSessionInput {
+  type: TrainingType;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  server: string;
+  cadetCapacity: number;
+  ftoCapacity: number;
+  notes: string;
+}

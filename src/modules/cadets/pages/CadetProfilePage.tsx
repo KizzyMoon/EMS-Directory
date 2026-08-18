@@ -6,6 +6,7 @@ import { StatusBadge } from '../../../components/StatusBadge';
 import { getCadet } from '../../../lib/cadetsApi';
 import { feedbackTone, formatDuration, formatRideAlongDate } from '../../rideAlongs/utils';
 import { formatTrainingDate, sessionTone } from '../../training/utils';
+import { useTrainingSessions } from '../../training/hooks/useTrainingSessions';
 import { CadetNav } from '../components/CadetNav';
 import {
   getCadetFeedback,
@@ -22,6 +23,7 @@ export function CadetProfilePage() {
   const [cadet, setCadet] = useState<CadetRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const { sessions: allTrainingSessions } = useTrainingSessions();
 
   const loadCadet = useCallback(async () => {
     if (!cadetId) return;
@@ -56,8 +58,8 @@ export function CadetProfilePage() {
   const stats = getCadetStats(cadet);
   const rideAlongs = getCadetRideAlongs(cadet);
   const feedback = getCadetFeedback(cadet);
-  const trainingSessions = getCadetTrainingSessions(cadet);
-  const upcoming = getUpcomingCadetSession(cadet);
+  const trainingSessions = getCadetTrainingSessions(cadet, allTrainingSessions);
+  const upcoming = getUpcomingCadetSession(cadet, allTrainingSessions);
   const remaining = daysRemaining(cadet.deadline);
 
   return (

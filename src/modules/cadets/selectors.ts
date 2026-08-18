@@ -1,5 +1,5 @@
 import { mockRideAlongs } from '../rideAlongs/data/mockRideAlongs';
-import { mockTrainingSessions } from '../training/data/mockTrainingSessions';
+import type { TrainingSession } from '../training/types';
 import type { CadetRecord } from './types';
 
 export function getCadetRideAlongs(cadet: CadetRecord) {
@@ -30,14 +30,14 @@ export function getCadetStats(cadet: CadetRecord) {
   };
 }
 
-export function getCadetTrainingSessions(cadet: CadetRecord) {
-  return mockTrainingSessions.filter((session) =>
+export function getCadetTrainingSessions(cadet: CadetRecord, sessions: TrainingSession[] = []) {
+  return sessions.filter((session) =>
     session.signups.some((signup) => signup.memberId === cadet.memberId),
   );
 }
 
-export function getUpcomingCadetSession(cadet: CadetRecord) {
-  return getCadetTrainingSessions(cadet).find((session) =>
+export function getUpcomingCadetSession(cadet: CadetRecord, sessions: TrainingSession[] = []) {
+  return getCadetTrainingSessions(cadet, sessions).find((session) =>
     session.status === 'Open' || session.status === 'Full',
   );
 }

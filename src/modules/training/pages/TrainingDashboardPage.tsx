@@ -1,17 +1,22 @@
-import { AlertTriangle, ArrowRight, CalendarClock, ClipboardCheck, Plus, Users } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CalendarClock, ClipboardCheck, Plus, RefreshCw, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../../auth/AuthContext';
+import { hasPermission } from '../../../auth/permissions';
 import { PageHeader } from '../../../components/PageHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { CreateSessionDrawer } from '../components/CreateSessionDrawer';
 import { TrainingNav } from '../components/TrainingNav';
-import { mockTrainingSessions } from '../data/mockTrainingSessions';
-import { formatTrainingDate, getSessionCounts, sessionTone } from '../utils';
+import { useTrainingSessions } from '../hooks/useTrainingSessions';
+import { formatTrainingActivityDate, formatTrainingDate, getSessionCounts, sessionTone } from '../utils';
 
 export function TrainingDashboardPage() {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, 'training.manage');
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const upcoming = mockTrainingSessions.filter((session) => session.status === 'Open' || session.status === 'Full');
-  const attendanceRequired = mockTrainingSessions.filter(
+  const { sessions, setSessions, loading, error, reload } = useTrainingSessions();
+  const upcoming = sessions.filter((session) => session.status === 'Open' || session.status === 'Full');
+  const attendanceRequired = sessions.filter(
     (session) => session.attendance.some((item) => item.status === 'Pending') && session.status === 'Completed',
   );
 
@@ -21,9 +26,11 @@ export function TrainingDashboardPage() {
         eyebrow="Training module"
         title="Training Management"
         description="Sessions, sign-ups, attendance and training records in one place."
-        actions={<button className="primary-button" onClick={() => setDrawerOpen(true)}><Plus size={16} /> New session</button>}
+        actions={canManage ? <button className="primary-button" onClick={() => setDrawerOpen(true)}><Plus size={16} /> New session</button> : null}
       />
       <TrainingNav />
+
+      {error ? <div className="status-note red-note"><span>{error}</span><button className="secondary-button compact-button" type="button" onClick={() => void reload()}><RefreshCw size={15} /> Try again</button></div> : null}
 
       <section className="training-summary">
         <div><CalendarClock size={18} /><strong>{upcoming.length}</strong><span>Upcoming sessions</span></div>
@@ -40,6 +47,7 @@ export function TrainingDashboardPage() {
           </div>
 
           <div className="training-session-stack">
+            {loading ? <p className="muted-text">Loading sessions…</p> : null}
             {upcoming.map((session) => {
               const counts = getSessionCounts(session);
               return (
@@ -61,6 +69,7 @@ export function TrainingDashboardPage() {
                 </Link>
               );
             })}
+            {!loading && !upcoming.length ? <p className="muted-text">No upcoming training sessions.</p> : null}
           </div>
         </section>
 
@@ -70,7 +79,7 @@ export function TrainingDashboardPage() {
           </div>
           <div className="training-action-list">
             <Link to="/training/attendance"><strong>Attendance to review</strong><span>{attendanceRequired.length} session waiting</span></Link>
-            <Link to="/training/sessions"><strong>Day 1 needs another FTO</strong><span>8 Aug · 19:00</span></Link>
+            <Link to="/training/sessions"><strong>Upcoming sessions</strong><span>{upcoming.length} currently open</span></Link>
             <Link to="/training/records"><strong>Training records</strong><span>Review completed sessions</span></Link>
           </div>
         </section>
@@ -80,20 +89,20 @@ export function TrainingDashboardPage() {
             <div><p className="eyebrow">Recent</p><h2>Training activity</h2></div>
           </div>
           <div className="training-activity-list">
-            {mockTrainingSessions.flatMap((session) =>
+            {sessions.flatMap((session) =>
               session.activity.map((activity) => ({ ...activity, sessionTitle: session.title })),
             ).slice(0, 5).map((activity) => (
               <div key={activity.id}>
                 <span className="activity-marker" />
                 <div><strong>{activity.label}</strong><span>{activity.sessionTitle} · {activity.detail}</span></div>
-                <time>{activity.createdAt}</time>
+                <time>{formatTrainingActivityDate(activity.createdAt)}</time>
               </div>
             ))}
           </div>
         </section>
       </div>
 
-      <CreateSessionDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <CreateSessionDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={(session) => setSessions((current) => [session, ...current])} />
     </>
   );
 }
