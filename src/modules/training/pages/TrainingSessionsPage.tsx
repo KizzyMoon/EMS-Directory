@@ -13,6 +13,7 @@ export function TrainingSessionsPage() {
   const [type, setType] = useState<TrainingType | 'All types'>('All types');
   const [status, setStatus] = useState<TrainingStatus | 'All statuses'>('All statuses');
   const { sessions: records, loading, error, reload } = useTrainingSessions();
+  const sheetManaged = records.some((session) => session.source === 'Google Sheets');
 
   const sessions = useMemo(() => records.filter((session) => {
     const text = `${session.title} ${session.location} ${session.server}`.toLowerCase();
@@ -26,7 +27,7 @@ export function TrainingSessionsPage() {
       <PageHeader
         eyebrow="Training module"
         title="Sessions"
-        description="View upcoming and previous organised training sessions."
+        description="View live upcoming and previous organised training sessions."
         actions={<a className="primary-button" href="https://docs.google.com/spreadsheets/d/1twcPjyyf3tuwq4L12OhmLz6QkF9_u8I5ai5qn9wAisg/edit" target="_blank" rel="noreferrer"><ExternalLink size={16} /> Open training sheet</a>}
       />
       <TrainingNav />
@@ -38,10 +39,16 @@ export function TrainingSessionsPage() {
       <section className="glass-card training-toolbar">
         <label className="training-search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sessions…" /></label>
         <select value={type} onChange={(e) => setType(e.target.value as TrainingType | 'All types')}>
-          <option>All types</option><option>Day 1</option><option>Day 2</option><option>Other Training</option><option>Probationer Test</option>
+          <option>All types</option><option>Day 1</option><option>Day 2</option>
+          {!sheetManaged ? <><option>Other Training</option><option>Probationer Test</option></> : null}
         </select>
         <select value={status} onChange={(e) => setStatus(e.target.value as TrainingStatus | 'All statuses')}>
-          <option>All statuses</option><option>Draft</option><option>Open</option><option>Full</option><option>Completed</option><option>Cancelled</option>
+          <option>All statuses</option>
+          {!sheetManaged ? <option>Draft</option> : null}
+          <option>Open</option>
+          {!sheetManaged ? <option>Full</option> : null}
+          <option>Completed</option>
+          {!sheetManaged ? <option>Cancelled</option> : null}
         </select>
       </section>
 
@@ -65,7 +72,7 @@ export function TrainingSessionsPage() {
             </Link>
           );
         })}
-        {!loading && !sessions.length ? <div className="roster-empty"><strong>No training sessions found</strong><span>Create a session or change the filters.</span></div> : null}
+        {!loading && !sessions.length ? <div className="roster-empty"><strong>No training sessions found</strong><span>{sheetManaged ? 'No live sessions match these filters. Try changing or clearing them.' : 'Create a session or change the filters.'}</span></div> : null}
       </section>
     </>
   );
