@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../../components/PageHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { getCadets } from '../../../lib/cadetsApi';
+import { useRideAlongs } from '../../rideAlongs/hooks/useRideAlongs';
 import { CadetNav } from '../components/CadetNav';
 import { getCadetStats } from '../selectors';
 import type { CadetRecord, CadetStage } from '../types';
@@ -27,6 +28,7 @@ export function CadetsOverviewPage() {
   const [records, setRecords] = useState<CadetRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const { rideAlongs } = useRideAlongs();
 
   const loadCadets = useCallback(async () => {
     setLoading(true);
@@ -91,7 +93,7 @@ export function CadetsOverviewPage() {
         </div>
         {loading ? <div className="roster-loading"><RefreshCw className="spin-icon" size={18} /> Loading cadets…</div> : null}
         {!loading && cadets.map((cadet) => {
-          const stats = getCadetStats(cadet);
+          const stats = getCadetStats(cadet, rideAlongs);
           const remaining = daysRemaining(cadet.deadline);
           return (
             <Link className="cadet-table cadet-table-row" to={`/cadets/${cadet.id}`} key={cadet.id}>

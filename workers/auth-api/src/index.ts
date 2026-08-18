@@ -97,6 +97,45 @@ interface DatabaseTrainingSession {
   }>;
 }
 
+interface DatabaseRideAlong {
+  id: string;
+  fto_id: string;
+  started_at: string;
+  ended_at: string | null;
+  status: string;
+  created_at: string;
+  fto: { display_name: string; callsign: string | null } | Array<{ display_name: string; callsign: string | null }> | null;
+  ride_along_cadets: Array<{
+    id: string;
+    member_id: string;
+    member: { display_name: string; callsign: string | null; employee_number: string | null } | Array<{ display_name: string; callsign: string | null; employee_number: string | null }> | null;
+    ride_along_feedback: {
+      id: string;
+      strengths: string;
+      areas_to_improve: string;
+      current_focus: string;
+      general_feedback: string;
+      concerns: string;
+      internal_notes: string;
+      recommended_next_step: string;
+      status: string;
+      submitted_at: string | null;
+    } | Array<{
+      id: string;
+      strengths: string;
+      areas_to_improve: string;
+      current_focus: string;
+      general_feedback: string;
+      concerns: string;
+      internal_notes: string;
+      recommended_next_step: string;
+      status: string;
+      submitted_at: string | null;
+    }> | null;
+  }>;
+  ride_along_calls: Array<{ call_code: string }>;
+}
+
 interface TrainingSessionInput {
   type: 'Day 1' | 'Day 2' | 'Other Training' | 'Probationer Test';
   title: string;
@@ -812,6 +851,263 @@ async function handleTrainingAttendanceApi(request: Request, env: Env, sessionId
   }
 }
 
+function mapRideAlong(rideAlong: DatabaseRideAlong, includeInternal: boolean) {
+  const fto = relatedOne(rideAlong.fto);
+  const cadets = (rideAlong.ride_along_cadets ?? []).map((entry) => {
+    const member = relatedOne(entry.member);
+    const feedback = relatedOne(entry.ride_along_feedback);
+    return {
+      id: entry.id,
+      memberId: entry.member_id,
+      name: member?.display_name ?? 'Unknown cadet',
+      employeeNumber: member?.employee_number ?? '',
+      callsign: member?.callsign ?? undefined,
+      feedbackStatus: feedback?.status ?? 'Not Started',
+    };
+  });
+  const feedback = (rideAlong.ride_along_cadets ?? []).flatMap((entry) => {
+    const record = relatedOne(entry.ride_along_feedback);
+    if (!record) return [];
+    const member = relatedOne(entry.member);
+    return [{
+      id: record.id,
+      cadetId: entry.member_id,
+      cadetName: member?.display_name ?? 'Unknown cadet',
+      strengths: record.strengths,
+      areasToImprove: record.areas_to_improve,
+      currentFocus: record.current_focus,
+      generalFeedback: record.general_feedback,
+      concerns: includeInternal ? record.concerns : '',
+      internalNotes: includeInternal ? record.internal_notes : '',
+      recommendedNextStep: record.recommended_next_step,
+      status: record.status,
+      submittedAt: record.submitted_at ?? undefined,
+    }];
+  });
+  const durationMinutes = rideAlong.ended_at
+    ? Math.max(0, Math.round((new Date(rideAlong.ended_at).getTime() - new Date(rideAlong.started_at).getTime()) / 60_000))
+    : undefined;
+  return {
+    id: rideAlong.id,
+    ftoId: rideAlong.fto_id,
+    ftoName: fto?.display_name ?? 'Unknown FTO',
+    ftoCallsign: fto?.callsign ?? '',
+    startedAt: rideAlong.started_at,
+    endedAt: rideAlong.ended_at ?? undefined,
+    durationMinutes,
+    status: rideAlong.status,
+    cadets,
+    feedback,
+    callsAttended: (rideAlong.ride_along_calls ?? []).map((call) => call.call_code),
+    createdAt: rideAlong.created_at,
+  };
+}
+
+const rideAlongSelect = 'id,fto_id,started_at,ended_at,status,created_at,fto:members!ride_alongs_fto_id_fkey(display_name,callsign),ride_along_cadets(id,member_id,member:members!ride_along_cadets_member_id_fkey(display_name,callsign,employee_number),ride_along_feedback(id,strengths,areas_to_improve,current_focus,general_feedback,concerns,internal_notes,recommended_next_step,status,submitted_at)),ride_along_calls(call_code)';
+
+async function readRideAlongs(env: Env, includeInternal: boolean, rideAlongId?: string) {
+  const filter = rideAlongId ? `&id=eq.${encodeURIComponent(rideAlongId)}` : '';
+  const response = await supabase(env, `ride_alongs?select=${rideAlongSelect}${filter}&order=started_at.desc`);
+  if (!response.ok) throw new Error(`Supabase ride along lookup failed: ${response.status}`);
+  return (await response.json() as DatabaseRideAlong[]).map((rideAlong) => mapRideAlong(rideAlong, includeInternal));
+}
+
+function rideAlongCadetOverview(cadets: Awaited<ReturnType<typeof readCadets>>, rideAlongs: ReturnType<typeof mapRideAlong>[]) {
+  return cadets.map((cadet) => {
+    const completed = rideAlongs.filter((rideAlong) =>
+      rideAlong.status === 'Completed' && rideAlong.cadets.some((entry) => entry.memberId === cadet.memberId),
+    );
+    const latestFeedback = completed
+      .flatMap((rideAlong) => rideAlong.feedback)
+      .filter((feedback) => feedback.cadetId === cadet.memberId && feedback.status === 'Submitted')
+      .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''))[0];
+    const daysRemaining = cadet.deadline
+      ? Math.max(0, Math.ceil((new Date(`${cadet.deadline}T12:00:00Z`).getTime() - Date.now()) / 86_400_000))
+      : null;
+    return {
+      id: cadet.memberId,
+      name: cadet.name,
+      employeeNumber: cadet.employeeNumber,
+      callsign: cadet.callsign,
+      daysRemaining,
+      rideAlongs: completed.length,
+      currentFocus: latestFeedback?.currentFocus || 'Not set',
+    };
+  });
+}
+
+async function handleRideAlongsApi(request: Request, env: Env, rideAlongId?: string) {
+  const permission = request.method === 'GET' ? 'training.read' : 'training.manage';
+  const auth = await requirePermission(request, env, permission);
+  if ('error' in auth) return auth.error;
+  const permissions = resolvePermissions(auth.member);
+  const includeInternal = permissions.includes('fto_resources.read') || permissions.includes('training.manage');
+
+  try {
+    if (request.method === 'GET') {
+      const rideAlongs = await readRideAlongs(env, includeInternal, rideAlongId);
+      if (rideAlongId && !rideAlongs[0]) return apiJson(env, { error: 'Ride along not found' }, 404);
+      if (rideAlongId) return apiJson(env, { rideAlong: rideAlongs[0] });
+      const cadets = await readCadets(env);
+      return apiJson(env, { rideAlongs, availableCadets: rideAlongCadetOverview(cadets, rideAlongs) });
+    }
+
+    if (request.method === 'POST' && !rideAlongId) {
+      const body: unknown = await request.json();
+      if (!isRecord(body) || !Array.isArray(body.cadetIds) || body.cadetIds.length < 1 || body.cadetIds.length > 2) {
+        throw new Error('Select one or two cadets');
+      }
+      const cadetIds = [...new Set(body.cadetIds.filter((value): value is string => typeof value === 'string'))];
+      if (cadetIds.length !== body.cadetIds.length) throw new Error('Select one or two unique cadets');
+      const startedAt = typeof body.startedAt === 'string' ? new Date(body.startedAt) : new Date('invalid');
+      if (Number.isNaN(startedAt.getTime())) throw new Error('Invalid ride along start time');
+      const cadets = await readCadets(env);
+      if (cadetIds.some((id) => !cadets.some((cadet) => cadet.memberId === id))) throw new Error('A selected cadet is not available');
+
+      const response = await supabase(env, 'ride_alongs', {
+        method: 'POST',
+        body: JSON.stringify({ fto_id: auth.member.id, started_at: startedAt.toISOString() }),
+      });
+      if (!response.ok) throw new Error(`Supabase ride along create failed: ${response.status}`);
+      const [created] = await response.json() as Array<{ id: string }>;
+      const cadetResponse = await supabase(env, 'ride_along_cadets', {
+        method: 'POST',
+        body: JSON.stringify(cadetIds.map((memberId) => ({ ride_along_id: created.id, member_id: memberId }))),
+      });
+      if (!cadetResponse.ok) throw new Error(`Supabase ride along cadet assignment failed: ${cadetResponse.status}`);
+      const auditResponse = await supabase(env, 'audit_logs', {
+        method: 'POST',
+        body: JSON.stringify({
+          actor_member_id: auth.member.id,
+          action: 'ride_along.started',
+          record_type: 'ride_along',
+          record_id: created.id,
+          new_value: { cadetIds, startedAt: startedAt.toISOString() },
+        }),
+      });
+      if (!auditResponse.ok) throw new Error(`Supabase ride along audit write failed: ${auditResponse.status}`);
+      const [rideAlong] = await readRideAlongs(env, true, created.id);
+      return apiJson(env, { rideAlong }, 201);
+    }
+
+    return apiJson(env, { error: 'Method not allowed' }, 405);
+  } catch (error) {
+    console.error(JSON.stringify({ message: 'Ride along API request failed', method: request.method, rideAlongId: rideAlongId ?? null, error: error instanceof Error ? error.message : String(error) }));
+    const message = error instanceof Error && !error.message.startsWith('Supabase') ? error.message : 'Unable to complete the ride along request';
+    return apiJson(env, { error: message }, 500);
+  }
+}
+
+async function handleRideAlongCallApi(request: Request, env: Env, rideAlongId: string) {
+  if (request.method !== 'POST') return apiJson(env, { error: 'Method not allowed' }, 405);
+  const auth = await requirePermission(request, env, 'training.manage');
+  if ('error' in auth) return auth.error;
+  try {
+    const body: unknown = await request.json();
+    const callCode = isRecord(body) ? requiredString(body.callCode, 'Call code') : '';
+    if (!/^[A-Za-z0-9 -]{1,30}$/.test(callCode)) throw new Error('Call code contains unsupported characters');
+    const [rideAlong] = await readRideAlongs(env, true, rideAlongId);
+    if (!rideAlong) return apiJson(env, { error: 'Ride along not found' }, 404);
+    if (rideAlong.status !== 'In Progress') throw new Error('Calls can only be added to an active ride along');
+    const response = await supabase(env, 'ride_along_calls', {
+      method: 'POST',
+      body: JSON.stringify({ ride_along_id: rideAlongId, call_code: callCode }),
+    });
+    if (!response.ok) throw new Error(`Supabase ride along call write failed: ${response.status}`);
+    const [updated] = await readRideAlongs(env, true, rideAlongId);
+    return apiJson(env, { rideAlong: updated });
+  } catch (error) {
+    const message = error instanceof Error && !error.message.startsWith('Supabase') ? error.message : 'Unable to add the call';
+    return apiJson(env, { error: message }, 500);
+  }
+}
+
+async function handleRideAlongEndApi(request: Request, env: Env, rideAlongId: string) {
+  if (request.method !== 'POST') return apiJson(env, { error: 'Method not allowed' }, 405);
+  const auth = await requirePermission(request, env, 'training.manage');
+  if ('error' in auth) return auth.error;
+  try {
+    const [rideAlong] = await readRideAlongs(env, true, rideAlongId);
+    if (!rideAlong) return apiJson(env, { error: 'Ride along not found' }, 404);
+    if (rideAlong.status === 'In Progress') {
+      const endedAt = new Date().toISOString();
+      const response = await supabase(env, `ride_alongs?id=eq.${encodeURIComponent(rideAlongId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Completed', ended_at: endedAt, updated_at: endedAt }),
+      });
+      if (!response.ok) throw new Error(`Supabase ride along completion failed: ${response.status}`);
+      const feedbackResponse = await supabase(env, 'ride_along_feedback?on_conflict=ride_along_cadet_id', {
+        method: 'POST',
+        headers: { prefer: 'resolution=ignore-duplicates,return=minimal' },
+        body: JSON.stringify(rideAlong.cadets.map((cadet) => ({ ride_along_cadet_id: cadet.id }))),
+      });
+      if (!feedbackResponse.ok) throw new Error(`Supabase ride along feedback initialization failed: ${feedbackResponse.status}`);
+      const auditResponse = await supabase(env, 'audit_logs', {
+        method: 'POST',
+        body: JSON.stringify({ actor_member_id: auth.member.id, action: 'ride_along.completed', record_type: 'ride_along', record_id: rideAlongId }),
+      });
+      if (!auditResponse.ok) throw new Error(`Supabase ride along audit write failed: ${auditResponse.status}`);
+    }
+    const [updated] = await readRideAlongs(env, true, rideAlongId);
+    return apiJson(env, { rideAlong: updated });
+  } catch (error) {
+    const message = error instanceof Error && !error.message.startsWith('Supabase') ? error.message : 'Unable to end the ride along';
+    return apiJson(env, { error: message }, 500);
+  }
+}
+
+async function handleRideAlongFeedbackApi(request: Request, env: Env, rideAlongId: string, cadetId: string) {
+  if (request.method !== 'PATCH') return apiJson(env, { error: 'Method not allowed' }, 405);
+  const auth = await requirePermission(request, env, 'training.manage');
+  if ('error' in auth) return auth.error;
+  try {
+    const body: unknown = await request.json();
+    if (!isRecord(body)) throw new Error('Invalid feedback data');
+    const [rideAlong] = await readRideAlongs(env, true, rideAlongId);
+    if (!rideAlong) return apiJson(env, { error: 'Ride along not found' }, 404);
+    const cadet = rideAlong.cadets.find((entry) => entry.memberId === cadetId);
+    if (!cadet) return apiJson(env, { error: 'Cadet is not part of this ride along' }, 404);
+    const allowedNextSteps = ['Continue Ride Alongs', 'Ready for Day 2', 'Needs Specific Training', 'Command Review Required'];
+    if (!allowedNextSteps.includes(String(body.recommendedNextStep))) throw new Error('Invalid recommended next step');
+    const submit = body.submit === true;
+    const now = new Date().toISOString();
+    const response = await supabase(env, 'ride_along_feedback?on_conflict=ride_along_cadet_id', {
+      method: 'POST',
+      headers: { prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({
+        ride_along_cadet_id: cadet.id,
+        strengths: typeof body.strengths === 'string' ? body.strengths.trim() : '',
+        areas_to_improve: typeof body.areasToImprove === 'string' ? body.areasToImprove.trim() : '',
+        current_focus: typeof body.currentFocus === 'string' ? body.currentFocus.trim() : '',
+        general_feedback: typeof body.generalFeedback === 'string' ? body.generalFeedback.trim() : '',
+        concerns: typeof body.concerns === 'string' ? body.concerns.trim() : '',
+        internal_notes: typeof body.internalNotes === 'string' ? body.internalNotes.trim() : '',
+        recommended_next_step: body.recommendedNextStep,
+        status: submit ? 'Submitted' : 'Draft',
+        submitted_at: submit ? now : null,
+        updated_at: now,
+      }),
+    });
+    if (!response.ok) throw new Error(`Supabase ride along feedback save failed: ${response.status}`);
+    const auditResponse = await supabase(env, 'audit_logs', {
+      method: 'POST',
+      body: JSON.stringify({
+        actor_member_id: auth.member.id,
+        action: submit ? 'ride_along.feedback.submitted' : 'ride_along.feedback.drafted',
+        record_type: 'ride_along_feedback',
+        record_id: `${rideAlongId}:${cadetId}`,
+        new_value: { currentFocus: body.currentFocus, recommendedNextStep: body.recommendedNextStep },
+      }),
+    });
+    if (!auditResponse.ok) throw new Error(`Supabase ride along feedback audit write failed: ${auditResponse.status}`);
+    const [updated] = await readRideAlongs(env, true, rideAlongId);
+    return apiJson(env, { rideAlong: updated });
+  } catch (error) {
+    const message = error instanceof Error && !error.message.startsWith('Supabase') ? error.message : 'Unable to save ride along feedback';
+    return apiJson(env, { error: message }, 500);
+  }
+}
+
 async function handleDiscordStart(request: Request, env: Env) {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get('returnTo') || `${env.FRONTEND_ORIGIN}${env.FRONTEND_PATH}#/`;
@@ -926,6 +1222,14 @@ export default {
     if (trainingAttendanceMatch) return handleTrainingAttendanceApi(request, env, decodeURIComponent(trainingAttendanceMatch[1]));
     const trainingMatch = url.pathname.match(/^\/api\/training-sessions(?:\/([^/]+))?$/);
     if (trainingMatch) return handleTrainingSessionsApi(request, env, trainingMatch[1] ? decodeURIComponent(trainingMatch[1]) : undefined);
+    const rideAlongCallMatch = url.pathname.match(/^\/api\/ride-alongs\/([^/]+)\/calls$/);
+    if (rideAlongCallMatch) return handleRideAlongCallApi(request, env, decodeURIComponent(rideAlongCallMatch[1]));
+    const rideAlongEndMatch = url.pathname.match(/^\/api\/ride-alongs\/([^/]+)\/end$/);
+    if (rideAlongEndMatch) return handleRideAlongEndApi(request, env, decodeURIComponent(rideAlongEndMatch[1]));
+    const rideAlongFeedbackMatch = url.pathname.match(/^\/api\/ride-alongs\/([^/]+)\/feedback\/([^/]+)$/);
+    if (rideAlongFeedbackMatch) return handleRideAlongFeedbackApi(request, env, decodeURIComponent(rideAlongFeedbackMatch[1]), decodeURIComponent(rideAlongFeedbackMatch[2]));
+    const rideAlongMatch = url.pathname.match(/^\/api\/ride-alongs(?:\/([^/]+))?$/);
+    if (rideAlongMatch) return handleRideAlongsApi(request, env, rideAlongMatch[1] ? decodeURIComponent(rideAlongMatch[1]) : undefined);
     if (url.pathname === '/api/discord-links') return handleDiscordLinkApi(request, env);
     return Response.json({ error: 'Not found' }, { status: 404, headers: { ...jsonHeaders, ...corsHeaders(env) } });
   },

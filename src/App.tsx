@@ -60,11 +60,21 @@ const router = createHashRouter([
               { path: 'training/records', element: <TrainingRecordsPage /> },
             ],
           },
-          { path: 'ride-alongs', element: <RideAlongDashboardPage /> },
-          { path: 'ride-alongs/start', element: <StartRideAlongPage /> },
-          { path: 'ride-alongs/active/:rideAlongId', element: <ActiveRideAlongPage /> },
-          { path: 'ride-alongs/history', element: <RideAlongHistoryPage /> },
-          { path: 'ride-alongs/:rideAlongId', element: <RideAlongDetailPage /> },
+          {
+            element: <RequirePermission permissions={['training.read']} />,
+            children: [
+              { path: 'ride-alongs', element: <RideAlongDashboardPage /> },
+              { path: 'ride-alongs/history', element: <RideAlongHistoryPage /> },
+              { path: 'ride-alongs/:rideAlongId', element: <RideAlongDetailPage /> },
+            ],
+          },
+          {
+            element: <RequirePermission permissions={['training.manage']} />,
+            children: [
+              { path: 'ride-alongs/start', element: <StartRideAlongPage /> },
+              { path: 'ride-alongs/active/:rideAlongId', element: <ActiveRideAlongPage /> },
+            ],
+          },
           {
             element: <RequirePermission permissions={['fto_resources.read']} />,
             children: [
