@@ -1,8 +1,8 @@
 import {
   ArrowRight,
   CalendarClock,
-  CheckCircle2,
   Clock3,
+  ClipboardCheck,
   Megaphone,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -14,24 +14,14 @@ import { StatusBadge } from '../components/StatusBadge';
 import { getCadets } from '../lib/cadetsApi';
 import { cadetStageTone, daysRemaining } from '../modules/cadets/utils';
 import type { CadetRecord } from '../modules/cadets/types';
-
-const sessions = [
-  { title: 'Day 1 Training', date: '8 August', time: '19:00', note: '1 FTO space available', tone: 'amber' as const },
-  { title: 'Day 2 Training', date: '10 August', time: '20:00', note: 'Cadet spaces available', tone: 'green' as const },
-];
-
-const urgentActions = [
-  {
-    title: 'Day 1 Training is short one FTO',
-    detail: 'Tonight, 19:00 - 2 of 3 FTO slots filled',
-    tone: 'amber',
-    action: 'Claim slot',
-  },
-];
+import { useTrainingSessions } from '../modules/training/hooks/useTrainingSessions';
+import { formatTrainingDate, getSessionCounts, sessionTone } from '../modules/training/utils';
 
 export function DashboardPage() {
   const { user } = useAuth();
   const canReadCadets = hasPermission(user, 'cadets.read');
+  const canReadTraining = hasPermission(user, 'training.read');
+  const { sessions, loading: sessionsLoading, error: sessionsError } = useTrainingSessions(canReadTraining);
   const [cadets, setCadets] = useState<CadetRecord[]>([]);
   const [cadetsLoading, setCadetsLoading] = useState(canReadCadets);
 
@@ -54,6 +44,21 @@ export function DashboardPage() {
   const awaitingDayOne = cadets.filter((cadet) => cadet.stage === 'Awaiting Day 1');
   const awaitingDayTwo = cadets.filter((cadet) => cadet.stage === 'Day 2 Booked');
   const rideAlongReady = cadets.filter((cadet) => cadet.stage === 'Available for Ride Alongs');
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingSessions = sessions
+    .filter((session) => session.date >= today && (session.status === 'Open' || session.status === 'Full'))
+    .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
+  const sessionsNeedingFtos = upcomingSessions.filter((session) => {
+    const counts = getSessionCounts(session);
+    return counts.ftos < session.ftoCapacity;
+  });
+  const attendanceToRecord = sessions.filter((session) =>
+    session.date < today
+    && session.status !== 'Completed'
+    && session.status !== 'Cancelled'
+    && session.signups.length > 0,
+  );
+  const actionCount = sessionsNeedingFtos.length + attendanceToRecord.length;
 
   return (
     <>
@@ -76,7 +81,7 @@ export function DashboardPage() {
           <div><strong>{canReadCadets ? awaitingDayTwo.length : '—'}</strong><span>Awaiting Day 2</span></div>
         </div>
         <div className="action-stat">
-          <div><strong>2</strong><span>Upcoming sessions</span></div>
+          <div><strong>{canReadTraining ? upcomingSessions.length : '—'}</strong><span>Upcoming sessions</span></div>
         </div>
       </section>
 
@@ -89,17 +94,29 @@ export function DashboardPage() {
           </div>
         </div>
         <div className="priority-list">
-          {urgentActions.map((item) => (
-            <article className={`priority-row priority-${item.tone}`} key={item.title}>
+          {sessionsNeedingFtos.slice(0, 3).map((session) => {
+            const counts = getSessionCounts(session);
+            const spaces = session.ftoCapacity - counts.ftos;
+            return (
+            <article className="priority-row priority-amber" key={session.id}>
               <div>
-                <strong>{item.title}</strong>
-                <span>{item.detail}</span>
+                <strong>{session.title} needs {spaces} FTO{spaces === 1 ? '' : 's'}</strong>
+                <span>{formatTrainingDate(session.date)}, {session.startTime} · {counts.ftos} of {session.ftoCapacity} FTO slots filled</span>
               </div>
-              <button className={item.action === 'Submit' ? 'primary-button compact-button' : 'secondary-button compact-button'} type="button">
-                {item.action}
-              </button>
+              <Link className="secondary-button compact-button" to={`/training/sessions/${session.id}`}>View session</Link>
+            </article>
+            );
+          })}
+          {attendanceToRecord.slice(0, Math.max(0, 3 - sessionsNeedingFtos.length)).map((session) => (
+            <article className="priority-row priority-red" key={session.id}>
+              <div><strong>Attendance is outstanding for {session.title}</strong><span>{formatTrainingDate(session.date)} · {session.signups.length} sign-ups</span></div>
+              <Link className="primary-button compact-button" to={`/training/sessions/${session.id}`}>Record attendance</Link>
             </article>
           ))}
+          {!sessionsLoading && canReadTraining && !actionCount ? <p className="muted-text">No training actions need attention.</p> : null}
+          {sessionsLoading ? <p className="muted-text">Checking training actions…</p> : null}
+          {sessionsError ? <p className="muted-text">Training actions could not be loaded.</p> : null}
+          {!canReadTraining ? <p className="muted-text">Training actions are restricted for your rank.</p> : null}
         </div>
       </section>
 
@@ -113,20 +130,28 @@ export function DashboardPage() {
             <Link className="text-link inline-link" to="/training">Open calendar <ArrowRight size={15} /></Link>
           </div>
           <div className="session-list">
-            {sessions.map((session) => (
-              <article className="session-row" key={session.title}>
+            {upcomingSessions.slice(0, 4).map((session) => {
+              const counts = getSessionCounts(session);
+              const ftoSpaces = Math.max(0, session.ftoCapacity - counts.ftos);
+              const cadetSpaces = Math.max(0, session.cadetCapacity - counts.cadets);
+              return (
+              <article className="session-row" key={session.id}>
                 <div className="session-date">
                   <CalendarClock size={18} />
-                  <div><strong>{session.date}</strong><span>{session.time}</span></div>
+                  <div><strong>{formatTrainingDate(session.date)}</strong><span>{session.startTime}</span></div>
                 </div>
                 <div className="session-main">
                   <strong>{session.title}</strong>
-                  <span>{session.note}</span>
+                  <span>{ftoSpaces} FTO · {cadetSpaces} cadet spaces available</span>
                 </div>
-                <StatusBadge tone={session.tone}>{session.tone === 'amber' ? 'FTO needed' : 'Spaces open'}</StatusBadge>
-                <button className="secondary-button compact-button">View</button>
+                <StatusBadge tone={sessionTone(session.status)}>{session.status}</StatusBadge>
+                <Link className="secondary-button compact-button" to={`/training/sessions/${session.id}`}>View</Link>
               </article>
-            ))}
+              );
+            })}
+            {!sessionsLoading && canReadTraining && !upcomingSessions.length ? <p className="muted-text">No upcoming training sessions.</p> : null}
+            {sessionsLoading ? <p className="muted-text">Loading training schedule…</p> : null}
+            {!canReadTraining ? <p className="muted-text">Training information is restricted for your rank.</p> : null}
           </div>
         </section>
 
@@ -136,11 +161,23 @@ export function DashboardPage() {
               <p className="eyebrow">Your queue</p>
               <h2>To Do List</h2>
             </div>
-            <span className="count-chip">2 open</span>
+            <span className="count-chip">{actionCount} open</span>
           </div>
           <div className="task-list">
-            <label className="task-item"><input type="checkbox" /><span><strong>Check Day 1 attendance</strong><small>Training session - tomorrow</small></span></label>
-            <label className="task-item"><input type="checkbox" /><span><strong>Read latest announcement</strong><small>Posted by Command</small></span></label>
+            {attendanceToRecord.slice(0, 2).map((session) => (
+              <Link className="task-item" to={`/training/sessions/${session.id}`} key={session.id}>
+                <ClipboardCheck size={18} />
+                <span><strong>Record {session.title} attendance</strong><small>{formatTrainingDate(session.date)}</small></span>
+              </Link>
+            ))}
+            {sessionsNeedingFtos.slice(0, Math.max(0, 2 - attendanceToRecord.length)).map((session) => (
+              <Link className="task-item" to={`/training/sessions/${session.id}`} key={session.id}>
+                <CalendarClock size={18} />
+                <span><strong>Fill FTO spaces for {session.title}</strong><small>{formatTrainingDate(session.date)}</small></span>
+              </Link>
+            ))}
+            {!sessionsLoading && canReadTraining && !actionCount ? <p className="muted-text">Your training queue is clear.</p> : null}
+            {!canReadTraining ? <p className="muted-text">No training queue is available for your rank.</p> : null}
           </div>
         </section>
 
@@ -174,17 +211,13 @@ export function DashboardPage() {
           <div className="panel-header">
             <div>
               <p className="eyebrow">Department</p>
-              <h2>Announcements</h2>
+              <h2>Operational guidance</h2>
             </div>
             <Megaphone size={18} />
           </div>
           <article className="announcement-item">
             <div className="announcement-icon"><Megaphone size={18} /></div>
-            <div><strong>Training server reminder</strong><p>All Day 1 and Day 2 sessions must be completed in the training server.</p><span>Today - Command</span></div>
-          </article>
-          <article className="announcement-item muted-item">
-            <div className="announcement-icon"><CheckCircle2 size={18} /></div>
-            <div><strong>FTO sheet updates</strong><p>Please complete feedback before ending your shift.</p><span>Yesterday - FTO Lead</span></div>
+            <div><strong>Keep records current</strong><p>Record attendance and ride-along feedback promptly so cadet progress remains accurate.</p></div>
           </article>
         </section>
       </div>
