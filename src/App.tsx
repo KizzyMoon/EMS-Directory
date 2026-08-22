@@ -1,4 +1,4 @@
-import { createHashRouter, RouterProvider } from 'react-router-dom';
+import { createHashRouter, Navigate, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { RequirePermission } from './auth/RequirePermission';
 import { RequireAuth } from './auth/RequireAuth';
@@ -7,11 +7,10 @@ import { AccessDeniedPage } from './pages/AccessDeniedPage';
 import { AdministrationPage } from './pages/AdministrationPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DiscordLinkingPage } from './pages/DiscordLinkingPage';
-import { GoogleResourcesPage } from './pages/GoogleResourcesPage';
 import { LoginPage } from './pages/LoginPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
 import { MyProfilePage } from './pages/MyProfilePage';
-import { QuickReferencePage } from './pages/QuickReferencePage';
+import { ResourceLibraryPage } from './pages/ResourceLibraryPage';
 import { RosterPage } from './pages/RosterPage';
 import {
   TrainingAttendancePage,
@@ -77,16 +76,12 @@ const router = createHashRouter([
               { path: 'ride-alongs/active/:rideAlongId', element: <ActiveRideAlongPage /> },
             ],
           },
-          {
-            element: <RequirePermission permissions={['fto_resources.read']} />,
-            children: [
-              { path: 'training-sheets', element: <GoogleResourcesPage section="training" /> },
-              { path: 'probationer-tests', element: <GoogleResourcesPage section="tests" /> },
-              { path: 'knowledge-base', element: <GoogleResourcesPage section="knowledge" /> },
-              { path: 'forms', element: <GoogleResourcesPage section="forms" /> },
-            ],
-          },
-          { path: 'quick-reference', element: <QuickReferencePage /> },
+          { path: 'resources', element: <ResourceLibraryPage /> },
+          { path: 'quick-reference', element: <Navigate to="/resources" replace /> },
+          { path: 'training-sheets', element: <Navigate to="/resources" replace /> },
+          { path: 'probationer-tests', element: <Navigate to="/resources" replace /> },
+          { path: 'knowledge-base', element: <Navigate to="/resources" replace /> },
+          { path: 'forms', element: <Navigate to="/resources" replace /> },
           { path: 'profile', element: <MyProfilePage /> },
           {
             element: <RequirePermission permissions={['admin.read']} />,
